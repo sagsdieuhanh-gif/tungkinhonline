@@ -33,7 +33,13 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  for(const ritual of ['bow','woodenFish','incense','bell','lantern','fortune','lotus','fruit','lamp']){
    assert.ok(rootMarkup.includes('data-loc-ritual="'+ritual+'"'),'Missing guest ritual '+ritual);
  }
- const stageScript=await get('/js/live.js');
+ const cinemaScript=await get('/js/buddha-cinema.js');
+ assert.equal(cinemaScript.status,200,'Theater JS must be served publicly');
+ assert.match(await cinemaScript.text(),/buddhaCinemaRestore/);
+ const cinemaStyle=await get('/css/buddha-cinema.css');
+ assert.equal(cinemaStyle.status,200,'Theater CSS must be served publicly');
+ assert.match(await cinemaStyle.text(),/buddha-cinema.is-minimized/);
+  const stageScript=await get('/js/live.js');
  assert.equal(stageScript.status,200);
  const stageSource=await stageScript.text();
  assert.ok(stageSource.includes('animateExactlyThisDevotee(ev)'),'Visitor must animate by identity');
