@@ -1249,6 +1249,19 @@ function cleanChatMessage(raw) {
 // 8. EXPRESS + WEBSOCKET SERVER
 // ============================================================================
 const app = express();
+// The legacy preview domain redirects to the single canonical SAGS CXR Tam Bảo
+// server. The redirect is enabled ONLY for the legacy Render service.
+if (process.env.SAGS_REDIRECT_TO_PRIMARY === '1') {
+  app.use((req, res) => {
+    const destination = 'https://tungkinhonline.onrender.com' + (req.originalUrl || '/');
+    if (req.method === 'GET' || req.method === 'HEAD') return res.redirect(302, destination);
+    return res.status(410).json({
+      ok: false,
+      error: 'Phòng chánh điện đã chuyển về https://tungkinhonline.onrender.com/',
+      url: 'https://tungkinhonline.onrender.com/'
+    });
+  });
+}
 // Render uses one reverse proxy hop; use the actual visitor IP for rate limits.
 app.set('trust proxy', 1);
 
