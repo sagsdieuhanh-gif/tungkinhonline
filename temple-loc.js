@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 const PRICES = Object.freeze({
   bow: 0, woodenFish: 1, incense: 5, bell: 10,
-  lantern: 10, fortune: 15, lotus: 20
+  lantern: 10, fortune: 15, lotus: 20, fruit: 25, lamp: 15
 });
 function createLuckyPool({randomInt=crypto.randomInt, now=()=>Date.now()}={}) {
   let current = null, nextId = 0;
