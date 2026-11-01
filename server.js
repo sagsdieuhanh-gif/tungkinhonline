@@ -6,6 +6,8 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
+const { createTempleRoom } = require('./temple-room');
+const { createLuckyPool } = require('./temple-loc');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
@@ -15,7 +17,7 @@ const STATE_FILE = path.join(DATA_DIR, 'merit-state.json');
 fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
 
 // ============================================================================
-// 1. BỘ 18 QUẺ LINH XĂM CHÙA LINH ỨNG (FORTUNE STICKS DECK)
+// 1. BỘ 18 QUẺ LINH XĂM SAGS CXR TAM BẢO (FORTUNE STICKS DECK)
 // ============================================================================
 const FORTUNE_DECK = [
   {
@@ -238,7 +240,7 @@ class ZeroTTSManager {
 }
 
 // ============================================================================
-// 3. TRẠNG THÁI CHÙA ONLINE & BẢNG VÀNG CÔNG ĐỨC
+// 3. TRẠNG THÁI SAGS CXR TAM BẢO & BẢNG VÀNG CÔNG ĐỨC
 // ============================================================================
 const DEFAULT_STATE = {
   totalIncense: 108,
@@ -256,7 +258,7 @@ const DEFAULT_STATE = {
     dragon: 1
   },
   devotees: {},
-  virtualFunds: { wallets: {}, envelope: null, roundCounter: 0 },
+  approvedDharmaNames: [],
   manualDisplayName: '',
   manualDisplayWish: '',
   recentEvents: [],
@@ -287,7 +289,7 @@ function loadState() {
         ...DEFAULT_STATE,
         ...saved,
         devotees: saved.devotees || {},
-        virtualFunds: { ...DEFAULT_STATE.virtualFunds, ...(saved.virtualFunds || {}), wallets: saved.virtualFunds?.wallets || {} },
+        approvedDharmaNames: Array.isArray(saved.approvedDharmaNames)?saved.approvedDharmaNames:[],
         offerings: { ...DEFAULT_STATE.offerings, ...(saved.offerings || {}) },
         settings: { ...DEFAULT_STATE.settings, ...(saved.settings || {}) },
         tiktok: { ...DEFAULT_STATE.tiktok }
@@ -300,11 +302,20 @@ function loadState() {
 }
 
 let state = loadState();
+// The actual room is ephemeral: an approved person must be physically present in this session.
+state.settings.autoSim=false; // never create fake followers.
+const room=createTempleRoom({approvedNames:state.approvedDharmaNames,onRegistryChange:list=>{state.approvedDharmaNames=list;saveState()},notify:(method,params)=>{
+  broadcastNotification(method,params);
+  if(method==='temple.chat')broadcastNotification('chat.message',{
+    id:params.id,name:params.name,text:params.text,source:params.source,
+    role:params.role||null,automated:Boolean(params.automated),timestamp:params.at
+  });
+  if(method==='temple.chat-sync')broadcastNotification('chat.sync',(params.messages||[]).map(m=>({
+    id:m.id,name:m.name,text:m.text,source:m.source,timestamp:m.at
+  })));
+}});
 
-// A fresh sanctuary starts empty. Only real web entry or TikTok MEMBER events
-// add participants; neither past merit records nor auto-simulation fills seats.
-const sanctuaryVisitors = new Map();
-const visitorJoinLimits = new Map();
+const locPool=createLuckyPool();
 
 let saveTimer = null;
 function saveState() {
@@ -320,7 +331,7 @@ function saveState() {
       activeIncenseSticks: state.activeIncenseSticks,
       offerings: state.offerings,
       devotees: state.devotees,
-      virtualFunds: state.virtualFunds,
+      approvedDharmaNames: state.approvedDharmaNames,
       manualDisplayName: state.manualDisplayName || '',
       manualDisplayWish: state.manualDisplayWish || '',
       settings: state.settings
@@ -332,18 +343,12 @@ function saveState() {
 }
 
 function getLeaderboard(limit = 6) {
-  return Object.values(state.devotees)
-    .sort((a, b) => b.merit - a.merit)
-    .slice(0, limit)
-    .map((d, index) => ({
-      rank: index + 1,
-      name: d.name,
-      uniqueId: d.uniqueId,
-      avatar: d.avatar || '',
-      merit: d.merit,
-      incense: d.incense || 0,
-      lastWish: d.lastWish || ''
-    }));
+  // Only individuals explicitly approved by the Trụ trì may occupy a seat.
+  return room.list().map(p=>{
+    const key=(p.id.startsWith('tt:')?p.id.slice(3):p.id).slice(0,40);
+    const d=state.devotees[key]||{};
+    return {name:p.name,uniqueId:key,avatar:d.avatar||p.avatar||'',merit:d.merit||0,incense:d.incense||0,lastWish:d.lastWish||'',group:p.group,joinedAt:p.joinedAt};
+  }).sort((a,b)=>b.merit-a.merit||a.joinedAt-b.joinedAt).slice(0,limit).map((d,index)=>({...d,rank:index+1}));
 }
 // Bộ lọc chặn ký tự lạ (Cuneiform 𒐫, Zalgo, Braille, ký tự spam) & từ ngữ phản cảm
 const WEIRD_SPAM_RE = /[\u{12000}-\u{1254F}\uFDFD\u2800-\u28FF\u2580-\u259F]|[\u0300-\u036F]{3,}/u;
@@ -453,9 +458,8 @@ function getPublicState() {
     activeIncenseSticks: state.activeIncenseSticks,
     haloIntensity: state.haloIntensity,
     offerings: state.offerings,
-    leaderboard: getLeaderboard(24),
-    sanctuaryParticipants: [...sanctuaryVisitors.values()].slice(-80),
-    virtualEnvelope: getVirtualEnvelopePublic(),
+    leaderboard: getLeaderboard(100),
+    attendance: room.publicRoom(),
     manualDisplayName: state.manualDisplayName || '',
     manualDisplayWish: state.manualDisplayWish || '',
     recentEvents: state.recentEvents.slice(0, 15),
@@ -905,26 +909,19 @@ async function connectTikTokLive(usernameOrUrl) {
     }
   });
 
-  tiktokConn.on(WebcastEvent.MEMBER, (data) => {
-    const { user, uniqueId, avatar } = extractUserFromEvent(data);
-    // Only a genuine TikTok room-entry event creates a visible congregant.
-    // Joining never awards imaginary merit or fills vacant seats.
-    addSanctuaryVisitor('tiktok:' + String(uniqueId || user), user, 'tiktok', avatar);
+  tiktokConn.on(WebcastEvent.MEMBER, () => {
+    // Watching TikTok LIVE is not the same as being admitted to the temple.
   });
 
   tiktokConn.on(WebcastEvent.CHAT, (data) => {
     const { user, uniqueId, avatar } = extractUserFromEvent(data);
     const commentText = data?.content || data?.comment || '';
     console.log(`[TikTok Chat] ${user}: ${commentText}`);
-    const publicText = cleanChatMessage(commentText);
-    const lastChat = tiktokChatRate.get(uniqueId || user) || 0;
-    if (publicText && Date.now() - lastChat >= 1500) {
-      addSanctuaryVisitor('tiktok:' + String(uniqueId || user), user, 'tiktok', avatar);
-      tiktokChatRate.set(uniqueId || user, Date.now());
-      if (tiktokChatRate.size > 500) tiktokChatRate.clear();
-      appendSharedChat(user, publicText, 'tiktok');
-    }
-    parseViewerComment(commentText, user, uniqueId, avatar);
+    const entrance=room.tiktokComment(uniqueId,user,commentText);
+    if(!entrance.approved)return; // any nonempty comment queues a request; no rituals without approval.
+    const publicText=cleanChatMessage(commentText);
+    if(publicText)room.submit(entrance.id,user,publicText,'tiktok');
+    parseViewerComment(commentText,user,uniqueId,avatar);
   });
 
   tiktokConn.on(WebcastEvent.LIKE, (data) => {
@@ -1049,16 +1046,10 @@ function runSingleSimulationStep() {
   }
 }
 
-function configureAutoSim(enabled) {
-  state.settings.autoSim = Boolean(enabled);
-  if (autoSimTimer) {
-    clearInterval(autoSimTimer);
-    autoSimTimer = null;
-  }
-  if (state.settings.autoSim) {
-    runSingleSimulationStep();
-    autoSimTimer = setInterval(runSingleSimulationStep, state.settings.autoSimIntervalMs || 9500);
-  }
+function configureAutoSim(_enabled) {
+  // The temple contains only real, Trụ trì-approved participants.
+  state.settings.autoSim=false;
+  if(autoSimTimer){clearInterval(autoSimTimer);autoSimTimer=null}
 }
 
 // ============================================================================
@@ -1225,36 +1216,6 @@ const onlineTts = {
 
 // Phòng chat chung: người xem trang web và bình luận TikTok chung một luồng.
 // Giữ tối đa 80 tin trong RAM (Render Free không có ổ đĩa lưu trữ bền vững).
-
-function addSanctuaryVisitor(id, name, source, avatar = '') {
-  const cleanName = sanitizeUserName(name);
-  if (cleanName === 'Thí Chủ Hữu Duyên') return null;
-  const cleanId = String(id || '').slice(0, 110);
-  if (!cleanId) return null;
-  const existing = sanctuaryVisitors.get(cleanId);
-  if (existing) {
-    if (existing.name !== cleanName || (avatar && !existing.avatar)) {
-      existing.name = cleanName;
-      if (avatar) existing.avatar = String(avatar).slice(0, 300);
-      broadcastNotification('temple.state', getPublicState());
-    }
-    return existing;
-  }
-  const newVisitor = {
-    id: cleanId,
-    name: cleanName,
-    avatar: source === 'tiktok' ? String(avatar || '').slice(0, 300) : '',
-    source: source === 'tiktok' ? 'tiktok' : 'web',
-    joinedAt: new Date().toISOString()
-  };
-  sanctuaryVisitors.set(cleanId, newVisitor);
-  while (sanctuaryVisitors.size > 80) {
-    sanctuaryVisitors.delete(sanctuaryVisitors.keys().next().value);
-  }
-  broadcastNotification('temple.state', getPublicState());
-  return newVisitor;
-}
-
 const sharedChat = [];
 const chatRate = new Map();
 const tiktokChatRate = new Map();
@@ -1352,12 +1313,31 @@ app.post('/auth/logout', (_req, res) => {
   res.setHeader('Set-Cookie', 'tko_admin=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax');
   res.json({ ok: true });
 });
+app.get('/trutri', (req,res)=>{
+  if(!authorized(req))return res.redirect(302,'/login?next=%2Ftrutri');
+  res.sendFile(path.join(__dirname,'public','trutri.html'));
+});
 app.get(['/admin', '/admin.html'], (req, res) => {
   if (!authorized(req)) return res.redirect(302, '/login');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Root is the invitation gate, never direct entry to the prayer hall.
+app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'public','vao-chua.html')));
+app.get('/index.html',(req,res)=>res.redirect(302,'/'));
+app.get('/chandien',(req,res)=>{
+  const ses=room.identity(req,res);
+  if(!authorized(req)&&!room.isApproved(ses.id))return res.redirect(302,'/');
+  return res.sendFile(path.join(__dirname,'public','index.html'));
+});
+app.get('/obs',(_req,res)=>{
+  // Read-only broadcast display. Streaming audiences do not gain a prayer seat.
+  return res.sendFile(path.join(__dirname,'public','index.html'));
+});
+// Do not allow direct access to the public files that bypass middleware.
+app.get(['/vao-chua.html','/trutri.html'],(req,res)=>res.redirect(302,'/'));
+app.use(express.static(path.join(__dirname,'public'),{index:false}));
+
 
 // HTTP JSON-RPC 2.0 Endpoint
 app.post('/rpc', async (req, res) => {
@@ -1417,279 +1397,180 @@ app.get('/api/tts/demo', async (req, res) => {
   if (record.count >= 8) return res.status(429).send('Đã vượt số lượt đọc thử trong một giờ');
   record.count++;
   demoVoiceLimit.set(source, record);
-  const demo = 'Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ thập phương. Nguyện cầu bình an và hạnh phúc.';
+  const demo = 'Nam mô A Di Đà Phật. SAGS CXR Tam Bảo kính chào quý thí chủ thập phương. Nguyện cầu bình an và hạnh phúc.';
   const result = await zeroTts.synthesize(demo, req.query.voice);
   if (!result.ok) return res.status(503).json(result);
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.sendFile(path.join(TTS_CACHE_DIR, path.basename(result.url)));
 });
 
-
-// ---- TRỤ TRÌ TẶNG LỘC MAY MẮN (100% TIỀN LỄ ẢO, KHÔNG TIỀN THẬT) ----
-const VIRTUAL_PRICES = Object.freeze({
-  bow: 0, woodenFish: 1, incense: 5, lantern: 10,
-  bell: 10, fortune: 15, lotus: 20
-});
-const VIRTUAL_LABELS = Object.freeze({
-  bow: 'Lễ Phật', woodenFish: 'Gõ mõ', incense: 'Thắp hương',
-  lantern: 'Thả hoa đăng', bell: 'Thỉnh chuông',
-  fortune: 'Xin xăm', lotus: 'Dâng hoa sen'
-});
-const virtualActionLimits = new Map();
-function getVirtualEnvelopePublic() {
-  const e = state.virtualFunds.envelope;
-  return e ? {
-    id: e.id, total: e.total, remaining: e.remaining,
-    claimCount: Object.keys(e.claims || {}).length,
-    active: Boolean(e.active) && e.remaining > 0,
-    startedAt: e.startedAt
-  } : null;
-}
-function verifiedWebVisitor(body) {
-  const raw = String(body?.sessionId || '');
-  if (!/^[a-z0-9_-]{12,64}$/i.test(raw)) return null;
-  return sanctuaryVisitors.get('web:' + raw) || null;
-}
-function visitorWallet(body) {
-  const visitor = verifiedWebVisitor(body);
-  if (!visitor) return null;
-  const amount = state.virtualFunds.wallets[visitor.id];
-  const balance = Number.isSafeInteger(amount) && amount >= 0 ? amount : 0;
-  return { visitor, balance };
-}
-function publishVirtualUpdate() {
-  // Never broadcast individual wallet balances to the whole room.
-  broadcastNotification('virtual.updated', { envelope: getVirtualEnvelopePublic() });
-}
-function virtualRateLimited(visitor, action, now = Date.now()) {
-  const key = visitor.id + ':' + action;
-  const recent = virtualActionLimits.get(key) || 0;
-  if (now - recent < 1500) return true;
-  virtualActionLimits.set(key, now);
-  if (virtualActionLimits.size > 1000) {
-    for (const [id, last] of virtualActionLimits) {
-      if (now - last > 60000) virtualActionLimits.delete(id);
-    }
-  }
-  return false;
-}
-function performVirtualRitual(visitor, ritual, wish) {
-  const args = {
-    user: visitor.name,
-    uniqueId: visitor.id, avatar: visitor.avatar || '',
-    wish, readTts: true
-  };
-  switch (ritual) {
-    case 'bow': {
-      const event = pushEventLog({
-        type: 'bowToBuddha', user: visitor.name, uniqueId: visitor.id,
-        avatar: visitor.avatar || '', merit: 0, wish,
-        ttsText: ''
-      });
-      broadcastNotification('temple.event', { event, state: getPublicState() });
-      return { event };
-    }
-    case 'woodenFish': return Rituals.strikeWoodenFish({ ...args, count: 1 });
-    case 'incense': return Rituals.burnIncense({ ...args, count: 1 });
-    case 'lantern': return Rituals.sendPrayer(args);
-    case 'bell': return Rituals.ringBell({ ...args, count: 1 });
-    case 'fortune': return Rituals.drawFortune({ ...args, topic: wish });
-    case 'lotus': {
-      const giftName = 'Hoa Sen Bình An (lộc ảo)';
-      const devotion = recordDevotee(visitor.name, visitor.id, visitor.avatar || '', 20, 0, 1, wish);
-      state.offerings.lotus = (state.offerings.lotus || 0) + 1;
-      const event = pushEventLog({
-        type: 'offerGift', user: devotion.name, uniqueId: devotion.uniqueId,
-        avatar: devotion.avatar, giftType: 'lotus', giftName,
-        coins: 0, virtualCost: VIRTUAL_PRICES.lotus, merit: 20, wish,
-        ttsText: 'Nam mô A Di Đà Phật. Thí chủ ' + devotion.name + ' thành tâm dâng hoa sen cầu bình an.',
-        ttsVoice: state.settings.ttsVoice || 'maichi'
-      });
-      broadcastNotification('temple.event', { event, state: getPublicState() });
-      return { event };
-    }
-    default: throw new Error('Nghi thức không hợp lệ');
-  }
-}
-
 app.get('/api/state', (_req, res) => {
   res.json(getPublicState());
 });
 
-app.get('/api/virtual/status', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, envelope: getVirtualEnvelopePublic(), prices: VIRTUAL_PRICES });
+
+// All visitor actions use a cryptographically random HttpOnly session cookie.
+// This does NOT prove company employment; the Trụ trì chooses the classification.
+const sameOrigin=(req)=>{
+ const origin=req.headers.origin;
+ if(!origin)return false;
+ try{return new URL(origin).host===req.headers.host}catch{return false}
+};
+const guestOrigin=(req,res,next)=>{
+ if(!sameOrigin(req))return res.status(403).json({error:'Yêu cầu phải gửi từ website SAGS CXR Tam Bảo'});
+ next();
+};
+app.get('/api/temple/me',(req,res)=>{
+ res.setHeader('Cache-Control','no-store');
+ const ses=room.identity(req,res);
+ res.json(room.status(ses));
+});
+app.post('/api/temple/join',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res),display=String(req.body?.name||'').trim();
+ const body=String(req.body?.comment||'').trim();
+ if(display.length<2||display.length>32||body.length>180)return res.status(400).json({error:'Nhập pháp danh từ 2–32 ký tự. Lời nhắn tối đa 180 ký tự'});
+ if(ses.lastComment&&Date.now()-ses.lastComment<8000)return res.status(429).json({error:'Hãy chờ 8 giây trước khi gửi lại'});
+ ses.lastComment=Date.now();ses.name=sanitizeUserName(display);
+ const r=room.request({id:ses.id,displayName:ses.name,comment:body,source:'web'});
+ if(!r.ok){
+   const reasons={'name-in-use':'Pháp danh đang được người khác sử dụng trong chánh điện. Nếu không phải bạn, hãy liên hệ Trụ trì.','empty-comment':'Lần đầu xin vào cần nhập lời nhắn để Trụ trì xem xét.','full':'Chánh điện đã đủ 100 người.'};
+   return res.status(r.reason==='name-in-use'?409:429).json({error:reasons[r.reason]||r.reason});
+ }
+ res.json({...room.status(ses),returning:Boolean(r.returning)});
+});
+app.post('/api/temple/leave',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res);
+ room.remove(ses.id);room.deny(ses.id);ses.lastComment=0;
+ res.json(room.status(ses));
+});
+app.get('/api/temple/chat',(req,res)=>{
+ res.setHeader('Cache-Control','no-store');
+ const ses=room.identity(req,res),data=room.chat(ses.id,authorized(req));
+ if(!data)return res.status(403).json({error:'Chờ Trụ trì duyệt mới được xem và gửi chat'});
+ res.json(data);
+});
+app.post('/api/temple/chat',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res);
+ const content=cleanChatMessage(req.body?.text);
+ if(!content)return res.status(400).json({error:'Tin nhắn không hợp lệ hoặc chứa liên kết/spam'});
+ const result=room.submit(ses.id,ses.name,content,'web');
+ if(!result.ok)return res.status(result.reason==='cooldown'?429:403).json({error:result.reason==='muted'?'Trụ trì đã tắt chat của bạn':result.reason==='cooldown'?'Gửi chậm lại, 3,5 giây một tin':'Chưa được Trụ trì duyệt'});
+ res.json({ok:true});
+});
+// Compatibility for the original stage's chat overlay. No guest can bypass approval.
+app.get('/api/chat',(req,res)=>{
+ const ses=room.identity(req,res),data=room.chat(ses.id,authorized(req));
+ if(!data)return res.status(403).json({error:'Chưa được Trụ trì duyệt'});
+ res.setHeader('Cache-Control','no-store');
+ res.json({ok:true,messages:data.messages.map(m=>({...m,timestamp:m.at}))});
+});
+app.post('/api/chat',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res),content=cleanChatMessage(req.body?.text);
+ if(!content)return res.status(400).json({error:'Nội dung không hợp lệ'});
+ const result=room.submit(ses.id,ses.name,content,'web');
+ if(!result.ok)return res.status(403).json({error:result.reason});
+ res.status(201).json({ok:true,message:result.message});
+});
+app.delete('/api/chat',requireAdmin,(_req,res)=>{room.clearChat();res.json({ok:true})});
+
+// Lucky envelopes are distinct from real money and TikTok gifts.
+// The participant's HttpOnly cookie is validated against the approved room.
+function locPerson(req,res){
+ const ses=room.identity(req,res);
+ return room.inside.get(ses.id)||null;
+}
+function locNotify(){
+ broadcastNotification('temple.loc',{envelope:locPool.view()});
+}
+function locRitual(person,action,wish){
+ const info={user:person.name,uniqueId:person.id,avatar:person.avatar||'',
+   wish:sanitizeWishText(wish)||'Cầu gia đình bình an, sức khỏe và may mắn',
+   count:1,readTts:true};
+ if(action==='bow'){
+   const event=pushEventLog({type:'bowToBuddha',user:person.name,
+     uniqueId:person.id,avatar:person.avatar||'',wish:info.wish,merit:0,ttsText:''});
+   broadcastNotification('temple.event',{event,state:getPublicState()});
+   return {event};
+ }
+ if(action==='woodenFish')return Rituals.strikeWoodenFish(info);
+ if(action==='incense')return Rituals.burnIncense(info);
+ if(action==='bell')return Rituals.ringBell(info);
+ if(action==='lantern')return Rituals.sendPrayer(info);
+ if(action==='fortune')return Rituals.drawFortune({...info,topic:info.wish});
+ if(action==='lotus'){
+   // Genuine virtual flower. Never manufacture or report TikTok coins.
+   const dev=recordDevotee(person.name,person.id,person.avatar||'',20,0,1,info.wish);
+   state.offerings.lotus=(state.offerings.lotus||0)+1;
+   const event=pushEventLog({type:'offerGift',user:dev.name,uniqueId:person.id,
+     avatar:dev.avatar,giftType:'lotus',giftName:'Hoa Sen Bình An',
+     coins:0,virtualCost:20,merit:20,wish:info.wish,
+     ttsText:'Nam mô A Di Đà Phật. Thí chủ '+dev.name+' thành tâm dâng hoa sen cầu bình an.'});
+   saveState();
+   broadcastNotification('temple.event',{event,state:getPublicState()});
+   return {event};
+ }
+ throw Error('Nghi thức không hợp lệ');
+}
+app.get('/api/temple/loc/status',(req,res)=>{
+ const person=locPerson(req,res);
+ res.setHeader('Cache-Control','no-store');
+ if(!person)return res.status(403).json({ok:false,error:'Chỉ người đã được Trụ trì duyệt mới nhận lộc'});
+ res.json(locPool.status(person.id));
+});
+app.post('/api/temple/loc/claim',guestOrigin,(req,res)=>{
+ const person=locPerson(req,res);
+ if(!person)return res.status(403).json({ok:false,error:'Chờ Trụ trì duyệt trước khi mở lộc'});
+ const r=locPool.claim(person.id);
+ if(r.ok)locNotify();
+ res.status(r.ok?200:409).json(r);
+});
+app.post('/api/temple/loc/ritual',guestOrigin,(req,res)=>{
+ const person=locPerson(req,res);
+ if(!person)return res.status(403).json({ok:false,error:'Chờ Trụ trì duyệt trước khi hành lễ'});
+ const action=String(req.body?.action||'');
+ const r=locPool.spend(person.id,action,()=>locRitual(person,action,req.body?.wish));
+ res.status(r.ok?200:409).json(r);
+});
+app.get('/api/trutri/loc',requireAdmin,(_req,res)=>{
+ res.setHeader('Cache-Control','no-store');
+ res.json({ok:true,envelope:locPool.view(),prices:locPool.prices});
+});
+app.post('/api/trutri/loc/open',requireAdmin,guestOrigin,(req,res)=>{
+ const r=locPool.open(req.body?.total);
+ if(r.ok)locNotify();
+ res.status(r.ok?200:409).json(r);
+});
+app.post('/api/trutri/loc/close',requireAdmin,guestOrigin,(_req,res)=>{
+ const r=locPool.close();
+ if(r.ok)locNotify();
+ res.status(r.ok?200:409).json(r);
 });
 
-app.post('/api/virtual/me', (req, res) => {
-  const entry = visitorWallet(req.body);
-  if (!entry) return res.status(403).json({ ok: false, error: 'Bạn cần đặt tên và vào chánh điện trước' });
-  const envelope = getVirtualEnvelopePublic();
-  const alreadyClaimed = Boolean(state.virtualFunds.envelope?.claims?.[entry.visitor.id]);
-  res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, balance: entry.balance, envelope, alreadyClaimed, prices: VIRTUAL_PRICES });
+app.get('/api/trutri/room',requireAdmin,(_req,res)=>{res.setHeader('Cache-Control','no-store');res.json(room.moderation())});
+app.post('/api/trutri/decide',requireAdmin,guestOrigin,(req,res)=>{
+ const id=String(req.body?.id||''),r=req.body?.allow?room.approve(id,req.body?.group):{ok:room.deny(id)};
+ if(!r.ok)return res.status(409).json({error:r.reason||'Yêu cầu không tồn tại hoặc đã được xử lý'});
+ broadcastNotification('temple.state',getPublicState());res.json({ok:true});
 });
-
-app.post('/api/virtual/claim', (req, res) => {
-  const entry = visitorWallet(req.body);
-  if (!entry) return res.status(403).json({ ok: false, error: 'Hãy vào chánh điện trước khi mở lộc' });
-  const e = state.virtualFunds.envelope;
-  if (!e || !e.active || e.remaining <= 0) {
-    return res.status(409).json({ ok: false, error: 'Trụ trì chưa mở đợt tặng lộc hoặc quỹ đã hết' });
-  }
-  if (e.claims[entry.visitor.id]) {
-    return res.status(409).json({ ok: false, error: 'Bạn đã mở lộc trong đợt này. Mỗi người chỉ mở một lần.' });
-  }
-  if (virtualRateLimited(entry.visitor, 'claim')) return res.status(429).json({ ok: false, error: 'Xin thao tác chậm lại' });
-  // Random allocation: a single envelope can award at most ~30% of its
-  // original pool, unless fewer than that remain. All awards are integers.
-  const cap = Math.max(1, Math.min(e.remaining, Math.ceil(e.total * .3), 1000));
-  const amount = crypto.randomInt(1, cap + 1);
-  const nextBalance = entry.balance + amount;
-  if (!Number.isSafeInteger(nextBalance)) return res.status(409).json({ ok: false, error: 'Vượt giới hạn số dư' });
-  e.remaining -= amount;
-  e.claims[entry.visitor.id] = amount;
-  state.virtualFunds.wallets[entry.visitor.id] = nextBalance;
-  if (e.remaining === 0) e.active = false;
-  saveState();
-  publishVirtualUpdate();
-  res.json({ ok: true, amount, balance: nextBalance, envelope: getVirtualEnvelopePublic() });
+app.post('/api/trutri/remove',requireAdmin,guestOrigin,(req,res)=>{
+ const ok=room.remove(req.body?.id);broadcastNotification('temple.state',getPublicState());res.json({ok});
 });
-
-app.post('/api/virtual/ritual', (req, res) => {
-  const entry = visitorWallet(req.body);
-  if (!entry) return res.status(403).json({ ok: false, error: 'Hãy vào chùa bằng tên của bạn trước' });
-  const ritual = String(req.body?.ritual || '');
-  if (!Object.hasOwn(VIRTUAL_PRICES, ritual)) {
-    return res.status(400).json({ ok: false, error: 'Nghi thức không hợp lệ' });
-  }
-  const cost = VIRTUAL_PRICES[ritual];
-  if (entry.balance < cost) {
-    return res.status(409).json({ ok: false, error: 'Không đủ lộc ảo. Bạn cần ' + cost + ' lộc để ' + VIRTUAL_LABELS[ritual] });
-  }
-  if (virtualRateLimited(entry.visitor, 'ritual')) return res.status(429).json({ ok: false, error: 'Hãy chờ 1–2 giây giữa các nghi thức' });
-  const wish = sanitizeWishText(req.body?.wish) || 'Cầu cho gia đình bình an, vạn sự cát tường';
-  state.virtualFunds.wallets[entry.visitor.id] = entry.balance - cost;
-  try {
-    const result = performVirtualRitual(entry.visitor, ritual, wish);
-    saveState();
-    publishVirtualUpdate();
-    res.json({ ok: true, ritual, cost, balance: entry.balance - cost, event: result.event });
-  } catch (err) {
-    state.virtualFunds.wallets[entry.visitor.id] = entry.balance;
-    console.warn('[Virtual Ritual]', err?.message || err);
-    res.status(500).json({ ok: false, error: 'Không thể thực hiện nghi thức. Lộc ảo chưa bị trừ.' });
-  }
+app.post('/api/trutri/approved/revoke',requireAdmin,guestOrigin,(req,res)=>{
+ const name=String(req.body?.name||'').trim();
+ const ok=room.revokeApprovedName(name);
+ if(ok)broadcastNotification('temple.state',getPublicState());
+ res.json({ok});
 });
-
-app.post('/api/virtual/envelope/create', requireAdmin, (req, res) => {
-  const total = Number(req.body?.total);
-  if (!Number.isSafeInteger(total) || total < 1 || total > 100000) {
-    return res.status(400).json({ ok: false, error: 'Quỹ tặng lộc cần từ 1 đến 100.000 lộc ảo' });
-  }
-  const current = state.virtualFunds.envelope;
-  if (current?.active && current.remaining > 0) {
-    return res.status(409).json({ ok: false, error: 'Đợt trước vẫn còn ' + current.remaining + ' lộc. Hãy kết thúc đợt trước trước khi mở đợt mới.' });
-  }
-  const count = (Number(state.virtualFunds.roundCounter) || 0) + 1;
-  state.virtualFunds.roundCounter = count;
-  state.virtualFunds.envelope = {
-    id: 'loc_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
-    total, remaining: total, active: true, startedAt: new Date().toISOString(),
-    claims: {}
-  };
-  saveState();
-  publishVirtualUpdate();
-  res.json({ ok: true, envelope: getVirtualEnvelopePublic() });
+app.post('/api/trutri/mute',requireAdmin,guestOrigin,(req,res)=>res.json({ok:room.setMute(req.body?.id,Boolean(req.body?.muted))}));
+app.post('/api/trutri/chat/send',requireAdmin,guestOrigin,(req,res)=>{
+ const content=cleanChatMessage(req.body?.text);
+ if(!content)return res.status(400).json({ok:false,error:'Tin nhắn không hợp lệ hoặc chứa đường link/spam'});
+ const result=room.submitAbbot(content);
+ if(!result.ok)return res.status(result.reason==='cooldown'?429:400).json({ok:false,error:result.reason==='cooldown'?'Vui lòng chờ một chút giữa các tin nhắn':'Tin nhắn không hợp lệ'});
+ res.json(result);
 });
-
-app.post('/api/virtual/envelope/close', requireAdmin, (_req, res) => {
-  if (!state.virtualFunds.envelope) return res.status(409).json({ ok: false, error: 'Chưa có đợt tặng lộc' });
-  state.virtualFunds.envelope.active = false;
-  saveState();
-  publishVirtualUpdate();
-  res.json({ ok: true, envelope: getVirtualEnvelopePublic() });
-});
-
-app.post('/api/visitors/join', (req, res) => {
-  const origin = String(req.headers.origin || '');
-  if (origin) {
-    try { if (new URL(origin).host !== req.headers.host) return res.status(403).json({ ok: false, error: 'Nguồn yêu cầu không hợp lệ' }); }
-    catch (_) { return res.status(403).json({ ok: false, error: 'Nguồn yêu cầu không hợp lệ' }); }
-  }
-  const nameRaw = String(req.body?.name || '').trim();
-  const sessionId = String(req.body?.sessionId || '').trim();
-  const name = sanitizeUserName(nameRaw);
-  if (nameRaw.length < 2 || nameRaw.length > 26 || name === 'Thí Chủ Hữu Duyên' ||
-      !/^[a-z0-9_-]{12,64}$/i.test(sessionId)) {
-    return res.status(400).json({ ok: false, error: 'Tên phải có 2–26 ký tự hợp lệ' });
-  }
-  const key = 'web:' + sessionId;
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const now = Date.now();
-  const limit = visitorJoinLimits.get(ip) || { begin: now, count: 0 };
-  if (now - limit.begin > 3600000) { limit.begin = now; limit.count = 0; }
-  if (!sanctuaryVisitors.has(key) && limit.count >= 18) {
-    return res.status(429).json({ ok: false, error: 'Có quá nhiều lượt vào phòng từ thiết bị này' });
-  }
-  if (!sanctuaryVisitors.has(key)) limit.count++;
-  visitorJoinLimits.set(ip, limit);
-  if (visitorJoinLimits.size > 2000) visitorJoinLimits.clear();
-  const visitor = addSanctuaryVisitor(key, name, 'web');
-  if (!visitor) return res.status(400).json({ ok: false, error: 'Tên không hợp lệ' });
-  res.json({ ok: true, visitor, participants: sanctuaryVisitors.size });
-});
-
-app.get('/api/chat', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, messages: sharedChat.slice(-60) });
-});
-
-app.post('/api/chat', (req, res) => {
-  const now = Date.now();
-  const origin = String(req.headers.origin || '');
-  if (origin) {
-    try {
-      if (new URL(origin).host !== req.headers.host) {
-        return res.status(403).json({ ok: false, error: 'Trang gửi tin không hợp lệ' });
-      }
-    } catch (_) {
-      return res.status(403).json({ ok: false, error: 'Nguồn gửi tin không hợp lệ' });
-    }
-  }
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const limit = chatRate.get(ip) || { last: 0, hourStart: now, count: 0 };
-  if (now - limit.hourStart > 3600000) { limit.count = 0; limit.hourStart = now; }
-  if (now - limit.last < 4000 || limit.count >= 25) {
-    return res.status(429).json({ ok: false, error: 'Gửi tối đa 1 tin/4 giây và 25 tin/giờ. Hãy thử lại sau.' });
-  }
-  const sessionId = String(req.body?.sessionId || '');
-  const registeredVisitor = sanctuaryVisitors.get('web:' + sessionId);
-  if (!registeredVisitor) {
-    return res.status(403).json({ ok: false, error: 'Hãy vào chùa và đặt tên trước khi chat' });
-  }
-  const name = registeredVisitor.name;
-  const content = cleanChatMessage(req.body?.text);
-  if (!content) {
-    return res.status(400).json({ ok: false, error: 'Nội dung tối đa 180 ký tự, không gửi liên kết hoặc spam' });
-  }
-  limit.last = now;
-  limit.count += 1;
-  chatRate.set(ip, limit);
-  if (chatRate.size > 2000) {
-    for (const [key, value] of chatRate) {
-      if (now - value.last > 3600000) chatRate.delete(key);
-    }
-  }
-  const message = appendSharedChat(name, content);
-  res.status(201).json({ ok: true, message });
-});
-
-app.delete('/api/chat', requireAdmin, (_req, res) => {
-  sharedChat.length = 0;
-  broadcastNotification('chat.sync', []);
-  res.json({ ok: true });
-});
+app.post('/api/trutri/chat/delete',requireAdmin,guestOrigin,(req,res)=>res.json({ok:room.deleteMessage(req.body?.id)}));
+app.post('/api/trutri/chat/clear',requireAdmin,guestOrigin,(_req,res)=>{room.clearChat();res.json({ok:true})});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ req, origin }, done) => {
@@ -1724,7 +1605,7 @@ wss.on('connection', (ws, req) => {
       params: getPublicState()
     })
   );
-  ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'chat.sync', params: sharedChat.slice(-60) }));
+  if(isAdmin)ws.send(JSON.stringify({jsonrpc:'2.0',method:'chat.sync',params:room.chat('',true).messages.map(m=>({...m,timestamp:m.at}))}));
 
   ws.on('message', async (raw) => {
     let msg;
@@ -1766,7 +1647,7 @@ const zeroTts = process.env.ENABLE_TTS === '1' ? new ZeroTTSManager() : onlineTt
 
 server.listen(PORT, () => {
   console.log(`============================================================`);
-  console.log(`🪷 CHÙA ONLINE TIKTOK LIVE RPC ĐÃ KHỞI ĐỘNG`);
+  console.log(`🪷 SAGS CXR TAM BẢO TIKTOK LIVE RPC ĐÃ KHỞI ĐỘNG`);
   console.log(`📺 Màn hình Live (9:16 OBS): http://localhost:${PORT}`);
   console.log(`🎛️ Bảng điều khiển RPC Admin: http://localhost:${PORT}/admin`);
   console.log(`🔌 JSON-RPC 2.0 Endpoint   : http://localhost:${PORT}/rpc (ws://localhost:${PORT}/ws)`);

@@ -1,0 +1,187 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SAGS CXR Tam Bảo · Chánh điện chung</title><meta name="theme-color" content="#19100c">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#110c0a;color:#f4e5c8;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100dvh}
+body:before{content:"";position:fixed;inset:0;background:linear-gradient(180deg,#150b0885,#110c0afa 70%),url('/assets/amitabha_stage.jpg') center 35%/cover;z-index:-1}
+main{max-width:1020px;margin:0 auto;padding:32px 16px 70px}h1{text-align:center;color:#ffd58e;font:700 clamp(30px,5vw,50px) Georgia,serif;margin:8px 0}h2{font:700 21px Georgia,serif;color:#fbd99d;margin:5px 0 14px}.eyebrow{text-align:center;color:#e9bd72;letter-spacing:.25em;font-size:12px;font-weight:700}
+.sub{text-align:center;color:#ead6b6;margin:0 0 25px}.card{border:1px solid #d6a75b65;border-radius:18px;background:#21140fef;box-shadow:0 15px 60px #0007;padding:clamp(16px,3vw,25px);margin-bottom:17px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}
+p{color:#d7bd98;line-height:1.5;font-size:14px}.muted{color:#c3a47e;font-size:12px}label{display:block;font-size:13px;margin:12px 0 5px}input,textarea,select{font:inherit;color:#fcebd2;width:100%;background:#120b09;border:1px solid #895a36;border-radius:10px;padding:12px;outline:none}input:focus,textarea:focus{border-color:#ffd58e}textarea{resize:vertical;min-height:70px}
+button{cursor:pointer;font:700 14px system-ui;padding:12px 17px;border-radius:10px;border:1px solid #805e39;background:#3c2919;color:#ffdda7}
+button.primary{background:linear-gradient(145deg,#f8d993,#b8803a);color:#241407;border:0}button:disabled{opacity:.5;cursor:not-allowed}
+.status{border:1px solid #cf9f4d66;background:#4a301640;border-radius:12px;padding:15px;line-height:1.55;margin:14px 0}.status strong{color:#ffe09b}.hidden{display:none!important}
+.counter{display:inline-block;border-radius:99px;background:#59401d75;border:1px solid #e8bb704a;padding:6px 12px;font-size:12px;float:right}
+.chatlog{height:315px;overflow-y:auto;background:#100b09;border:1px solid #6a4529;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.chatline{border-bottom:1px solid #74503145;padding:4px 0 10px}.chatmeta{font-size:11px;color:#d8b472}.chattext{white-space:pre-wrap;overflow-wrap:anywhere;color:#f7ebd3;font-size:13px;line-height:1.45}
+form.chatForm{display:flex;gap:8px;margin-top:12px}form.chatForm input{min-width:0;flex:1}form.chatForm button{white-space:nowrap}
+.stageframe{width:100%;aspect-ratio:9/16;max-height:550px;display:block;background:#070403;border-radius:10px;border:1px solid #6c452c}
+.members{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.lucky-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}
+.lucky-grid button{white-space:normal;font-size:13px;line-height:1.5;min-width:0}
+.lucky-grid button small{display:block;font-size:11px;color:#e7c78c}
+.lucky-balance{font-size:24px;font-weight:800;color:#ffdfa1}
+.lucky-hint{font-size:12px;color:#e3c99d;line-height:1.55}
+#locGuestStatus{font-size:13px;line-height:1.6;white-space:pre-wrap}
+#locGuestClaim{width:100%;background:linear-gradient(145deg,#ffe69b,#d3a047);color:#271206;font-weight:800}.member{font-size:12px;padding:7px 10px;border-radius:99px;background:#513725;border:1px solid #e7ba6b42}
+footer{text-align:center;color:#b99d7b;font-size:12px;margin:30px auto;line-height:1.5}
+.visitor-topbar{display:flex;justify-content:flex-end;align-items:center;margin:0 0 12px;min-height:43px}
+.abbot-entry-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#251302;background:linear-gradient(135deg,#ffe6a4,#d4a04e);border:1px solid #f8d788;box-shadow:0 5px 17px #0008;border-radius:10px;padding:11px 17px;font-size:14px;font-weight:800;text-decoration:none}
+.abbot-entry-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media(max-width:780px){.grid{grid-template-columns:1fr}form.chatForm{flex-wrap:wrap}form.chatForm button{width:100%}.counter{float:none;display:block;width:max-content;margin-top:7px}}
+.chatline.abbot-message{background:linear-gradient(140deg,#765123ac,#492411e6);border:2px solid #f6cd72;border-radius:12px;padding:12px 13px;box-shadow:0 6px 20px #0006;margin:4px 0}
+.chatline.abbot-message .chatmeta{font-size:13px;font-weight:900;color:#ffe896;letter-spacing:.4px;margin-bottom:6px}
+.chatline.abbot-message .chattext{font-size:15px;font-weight:650;line-height:1.65;color:#fff4ce}
+
+/* Entrance-first responsive layout. The entrance card is the immediate focus. */
+main{padding-top:max(12px,env(safe-area-inset-top));max-width:1140px}
+.visitor-topbar{margin-bottom:8px}
+.abbot-entry-btn{font-weight:850;box-shadow:0 3px 14px #0007}
+#joinForm{display:grid;gap:5px}
+#joinSubmit{font-size:16px;padding:15px;min-height:49px;width:100%;margin-top:7px}
+#joinForm label{font-size:13px;font-weight:700;color:#ffe1a2}
+#displayName,#joinText{font-size:16px}
+#statusArea{margin-bottom:0}
+.chat-window{
+ position:fixed;right:10px;bottom:max(68px,env(safe-area-inset-bottom));
+ width:min(400px,calc(100vw - 20px));height:min(570px,70dvh);
+ z-index:9100;display:flex;flex-direction:column;
+ background:#251510;border:2px solid #d6a75b;border-radius:16px;
+ padding:12px;box-shadow:0 12px 42px #000b;overflow:hidden;
+ touch-action:auto;
+}
+.chat-window.chat-collapsed{display:none}
+.chat-handle{flex:none;cursor:grab;touch-action:none;user-select:none;
+ display:flex;align-items:center;justify-content:space-between;gap:6px;
+ padding:7px;border-radius:9px;background:#5b361a;color:#ffe4a0;font-weight:800}
+.chat-handle.dragging{cursor:grabbing}
+.chat-close{padding:6px 10px;min-height:32px}
+.chat-window .chatlog{flex:1;min-height:80px;height:auto;overflow-y:auto}
+.chat-window .chatForm{flex:none;flex-wrap:nowrap}
+.chat-window .chatForm button{width:auto}
+.chat-toggle{position:fixed;bottom:max(8px,env(safe-area-inset-bottom));
+ right:12px;z-index:9150;border:1.5px solid #ffdd93;
+ background:#5f3516;box-shadow:0 5px 20px #0009;padding:11px 15px}
+.chat-toggle[hidden]{display:none}
+@media(max-width:500px){
+ .chat-window{bottom:max(66px,env(safe-area-inset-bottom));height:min(490px,64dvh)}
+ .chat-window .chatForm button{padding:10px}
+ .eyebrow{letter-spacing:.12em}
+ h1{font-size:clamp(30px,8vw,42px)}
+ .card{padding:16px}
+}
+</style></head><body><main>
+<nav class="visitor-topbar" aria-label="Quản trị"><a class="abbot-entry-btn" href="/trutri">🔐 TRỤ TRÌ · ĐĂNG NHẬP</a></nav>
+<div class="eyebrow">NAM MÔ A DI ĐÀ PHẬT</div><h1>SAGS CXR Tam Bảo</h1><p class="sub">🪷 Chánh điện mở cửa · Người thật tham gia · Trụ trì đồng hành</p>
+<div class="card">
+<span id="headCount" class="counter">0 / 100 vị trí</span><h2>🙏 Vào chánh điện ngay</h2>
+<p><strong>Chánh điện mở cửa tự do, không cần Trụ trì duyệt.</strong> Chỉ cần nhập tên/pháp danh và bấm VÀO CHÁNH ĐIỆN. Mỗi người vào mới xuất hiện trên sân khấu; người dùng pháp danh cũ có thể nhập lại để vào lần sau. Không cần tài khoản hay mật khẩu.</p>
+<form id="joinForm"><label for="displayName">Tên hoặc pháp danh</label><input id="displayName" required minlength="2" maxlength="32" placeholder="Nhập tên / pháp danh">
+<label for="joinText">Lời chào hoặc lời nguyện (không bắt buộc)</label><input id="joinText" maxlength="180" placeholder="Nam mô A Di Đà Phật…">
+<button class="primary" type="submit" id="joinSubmit">🪷 VÀO CHÁNH ĐIỆN NGAY</button></form>
+<div class="status" id="statusArea"><strong id="statusTitle">Sẵn sàng vào chánh điện</strong><div id="statusDetail">Nhập pháp danh, bấm VÀO CHÁNH ĐIỆN NGAY. Không phải chờ duyệt.</div></div>
+<button type="button" id="leaveBtn" class="hidden">Rời chánh điện</button>
+</div>
+<section id="inside" class="hidden">
+<div class="card" id="locGuestPanel">
+<h2>🧧 Lộc may mắn do Trụ trì phát</h2>
+<p class="lucky-hint">Khi Trụ trì mở đợt phát lộc, bạn bấm MỞ LỘC một lần để nhận số lộc ngẫu nhiên. Dùng lộc ảo để dâng sen, thắp hương, thỉnh chuông và hành lễ. Không phải tiền thật hoặc xu TikTok.</p>
+<div class="row"><strong>Số dư:</strong><span class="lucky-balance" id="locGuestBalance">0 lộc</span></div>
+<div class="status" id="locGuestRound">Đang xem quỹ lộc...</div>
+<button id="locGuestClaim" type="button" disabled>🧧 CHỜ TRỤ TRÌ PHÁT LỘC</button>
+<label for="locGuestWish">Lời cầu nguyện</label><input id="locGuestWish" maxlength="120" placeholder="Cầu gia đình bình an..." />
+<div class="lucky-grid">
+<button type="button" data-loc-ritual="bow">🙏 Lễ Phật <small>Miễn phí</small></button>
+<button type="button" data-loc-ritual="woodenFish">🪵 Gõ mõ <small>1 lộc</small></button>
+<button type="button" data-loc-ritual="incense">🔥 Thắp hương <small>5 lộc</small></button>
+<button type="button" data-loc-ritual="lotus">🪷 Dâng sen <small>20 lộc</small></button>
+<button type="button" data-loc-ritual="lantern">🏮 Thả hoa đăng <small>10 lộc</small></button>
+<button type="button" data-loc-ritual="bell">🔔 Thỉnh chuông <small>10 lộc</small></button>
+<button type="button" data-loc-ritual="fortune">🎋 Xin xăm <small>15 lộc</small></button>
+</div>
+<div id="locGuestStatus" role="status" aria-live="polite">Người đã vào chánh điện có thể mở lộc khi Trụ trì phát.</div>
+</div>
+<div class="grid">
+<div class="card"><h2>🪷 Chánh điện và đọc kinh</h2><p class="muted">Bấm vào hình chánh điện để bật âm thanh nếu trình duyệt đang chặn tự phát.</p><iframe title="Chánh điện SAGS CXR Tam Bảo" id="templeFrame" class="stageframe" loading="lazy" allow="autoplay" referrerpolicy="same-origin"></iframe></div>
+<div class="card chat-window chat-collapsed" id="visitorChatDock">
+<div class="chat-handle" id="visitorChatHandle"><span>💬 Chat chung · Kéo để di chuyển</span><button type="button" class="chat-close" id="visitorChatClose">−</button></div>
+<h2>💬 Trò chuyện trong chánh điện</h2><p class="muted">Phòng chat chung người xem và TikTok LIVE. Trụ trì quản lý tin nhắn.</p><div id="chatLog" class="chatlog" role="log"><span class="muted">Chưa có tin nhắn.</span></div>
+<form id="chatForm" class="chatForm"><input id="chatText" maxlength="180" placeholder="Gửi lời chào, niệm Phật..." aria-label="Tin nhắn phòng chat" required><button type="submit" class="primary" id="chatSend">GỬI</button></form><p id="chatInfo" class="muted"></p>
+<h2>Phật tử đang có mặt</h2><div id="members" class="members"></div></div>
+</div></section>
+<button type="button" id="visitorChatToggle" class="chat-toggle" hidden aria-expanded="false">💬 Mở phòng chat</button>
+<div class="card"><h2>📜 Quy định tham gia</h2><p>Không có nhân vật giả; mọi người vào chùa được xuất hiện ngay, tối đa 100 vị trí. Nhập đúng pháp danh để trở lại. Một pháp danh chỉ sử dụng được cho một người tại cùng thời điểm; tên không phải cơ chế xác minh danh tính. Không chia sẻ số điện thoại, thông tin thanh toán hoặc dữ liệu cá nhân. Lộc lễ chỉ là điểm ảo, không quy đổi tiền hoặc xu TikTok.</p></div>
+<footer><a href="/trutri" style="display:inline-block;color:#ffe0a1;font-weight:700;margin-bottom:14px;padding:10px 14px;border:1px solid #b58a4c;border-radius:10px;text-decoration:none">🔐 TRỤ TRÌ · QUẢN LÝ CHÁNH ĐIỆN</a><div>SAGS CXR Tam Bảo · Chánh điện mở cửa tự do tối đa 100 người · Trụ trì có thể quản lý khi cần.</div></footer>
+</main><script src="/js/chat-dock.js"></script><script>
+'use strict';
+const $=id=>document.getElementById(id);let currentStatus='',currentVersion=-1,chatVersion=-1,busy=false;
+async function api(path,data,method){const options={credentials:'same-origin',cache:'no-store'};if(data!==undefined){options.method=method||'POST';options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(data)}const r=await fetch(path,options);const v=await r.json().catch(()=>({error:'Không đọc được phản hồi'}));if(!r.ok)throw Error(v.error||'HTTP '+r.status);return v}
+function statusView(x){
+ const now=x.status;currentStatus=now;
+ $('headCount').textContent=x.count+' / '+x.capacity+' vị trí';
+ $('inside').classList.toggle('hidden',now!=='approved');$('visitorChatToggle').hidden=now!=='approved';$('leaveBtn').classList.toggle('hidden',now!=='approved'&&now!=='pending');
+ $('joinForm').classList.toggle('hidden',now==='approved'||now==='pending');
+ const titles={new:'Sẵn sàng vào chánh điện',pending:'Đang vào chánh điện',approved:'🪷 Đã vào chánh điện','not-approved':'Mời vào chánh điện'};
+ $('statusTitle').textContent=titles[now]||titles.new;
+ $('statusDetail').textContent=now==='pending'?'Đang đưa bạn vào chánh điện…':now==='approved'?'Nam mô A Di Đà Phật. Bạn đã vào chánh điện, có thể nghe kinh, nhận lộc và chat chung.':'Chỉ cần nhập pháp danh, bấm VÀO CHÁNH ĐIỆN NGAY; không cần chờ duyệt.';
+ const members=$('members');if(x.version!==currentVersion){currentVersion=x.version;members.replaceChildren();(x.people||[]).forEach(p=>{const s=document.createElement('span');s.className='member';s.textContent=p.name+' · '+(p.group==='internal'?'Nội bộ':'TikTok');members.append(s)})}
+ if(now==='approved'&&!$('templeFrame').src)$('templeFrame').src='/chandien?obs=1';
+}
+async function refresh(){
+ if(document.hidden)return;
+ try{let s=await api('/api/temple/me');statusView(s);if(s.status==='approved'){await Promise.all([loadChat(),refreshLoc()])}}
+ catch(e){$('statusDetail').textContent=e.message}
+}
+async function loadChat(){
+ try{const c=await api('/api/temple/chat');$('chatText').disabled=!!c.muted;$('chatSend').disabled=!!c.muted;$('chatInfo').textContent=c.muted?'Trụ trì đã tạm khóa quyền chat của bạn. Bạn vẫn đọc được tin nhắn.':'Mọi người đã được duyệt đều có thể thấy tin nhắn chung.';
+ if(c.version!==chatVersion){chatVersion=c.version;const log=$('chatLog'),near=log.scrollHeight-log.scrollTop-log.clientHeight<60;log.replaceChildren();if(!c.messages.length){const n=document.createElement('span');n.className='muted';n.textContent='Chưa có lời nhắn.';log.append(n)}
+ for(const m of c.messages){const row=document.createElement('div');const isAbbot=m.role==='abbot'&&m.source==='abbot';row.className='chatline'+(isAbbot?' abbot-message':'');const meta=document.createElement('div');meta.className='chatmeta';const d=new Date(m.at);meta.textContent=(isAbbot?'👑 TRỤ TRÌ · ĐÃ XÁC THỰC':m.name+' · '+(m.source==='tiktok'?'TikTok LIVE':'Web'))+(m.automated?' · 🌸 LỜI CHÚC TỰ ĐỘNG':'')+' · '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});const t=document.createElement('div');t.className='chattext';t.textContent=m.text;row.append(meta,t);log.append(row)}if(near||c.messages.length<3)log.scrollTop=log.scrollHeight}}
+ catch(e){$('chatInfo').textContent=e.message}
+}
+$('joinForm').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;$('joinSubmit').disabled=true;try{statusView(await api('/api/temple/join',{name:$('displayName').value,comment:$('joinText').value}))}catch(e){$('statusDetail').textContent=e.message}finally{busy=false;$('joinSubmit').disabled=false}});
+$('chatForm').addEventListener('submit',async e=>{e.preventDefault();const input=$('chatText');const text=input.value.trim();if(!text)return;try{await api('/api/temple/chat',{text});input.value='';await loadChat()}catch(e){$('chatInfo').textContent=e.message}});
+
+let locBusy=false;
+async function refreshLoc(){
+ if(currentStatus!=='approved'||document.hidden)return;
+ try{
+  const v=await api('/api/temple/loc/status'),e=v.envelope;
+  $('locGuestBalance').textContent=v.balance.toLocaleString('vi-VN')+' lộc';
+  $('locGuestRound').textContent=!e?'Chưa có đợt tặng lộc':
+   (e.active?'🧧 ĐANG PHÁT':'Đã kết thúc đợt lộc')+
+   ' · Còn '+e.remaining.toLocaleString('vi-VN')+'/'+e.total.toLocaleString('vi-VN')+
+   ' lộc · '+e.claimed+' lượt mở';
+  const b=$('locGuestClaim');
+  b.disabled=locBusy||!e?.active||v.claimed;
+  b.textContent=v.claimed?'✅ ĐÃ MỞ LỘC ĐỢT NÀY':e?.active?'🧧 MỞ LỘC MAY MẮN':'🧧 CHỜ TRỤ TRÌ PHÁT LỘC';
+ }catch(err){$('locGuestStatus').textContent=err.message}
+}
+$('locGuestClaim').onclick=async()=>{
+ if(locBusy||currentStatus!=='approved')return;
+ locBusy=true;$('locGuestClaim').disabled=true;
+ try{
+  const r=await api('/api/temple/loc/claim',{});
+  $('locGuestStatus').textContent='🎊 Bạn đã mở được '+r.amount+' lộc ảo! Hãy chọn một nghi thức bên dưới.';
+ }catch(err){$('locGuestStatus').textContent='❌ '+err.message}
+ finally{locBusy=false;await refreshLoc()}
+};
+document.querySelectorAll('[data-loc-ritual]').forEach(b=>b.onclick=async()=>{
+ if(locBusy||currentStatus!=='approved')return;
+ locBusy=true;
+ document.querySelectorAll('[data-loc-ritual]').forEach(el=>el.disabled=true);
+ try{
+  const action=b.dataset.locRitual, wish=$('locGuestWish').value.trim();
+  const result=await api('/api/temple/loc/ritual',{action,wish});
+  $('locGuestStatus').textContent='🙏 Đã thực hiện '+b.textContent.trim().replace(/\s+/g,' ')+
+   (result.cost?' · Sử dụng '+result.cost+' lộc ảo.':' · Miễn phí.');
+ }catch(err){$('locGuestStatus').textContent='❌ '+err.message}
+ finally{
+  locBusy=false;
+  document.querySelectorAll('[data-loc-ritual]').forEach(el=>el.disabled=false);
+  await refreshLoc();
+ }
+});
+$('leaveBtn').addEventListener('click',async()=>{try{await api('/api/temple/leave',{});$('templeFrame').src='';chatVersion=-1;await refresh()}catch(e){$('statusDetail').textContent=e.message}});
+window.setupMovableTempleChat({panelId:'visitorChatDock',headerId:'visitorChatHandle',
+ toggleId:'visitorChatToggle',closeId:'visitorChatClose',storeKey:'visitor'});
+setInterval(refresh,5000);setInterval(refreshLoc,4000);
+setInterval(()=>{if(currentStatus==='approved'&&!document.hidden)loadChat()},2700);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});refresh();
+</script></body></html>

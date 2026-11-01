@@ -3,32 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Chánh Điện Chùa Linh Ứng Online — Phòng Chat Chung</title>
+  <title>SAGS CXR Tam Bảo — TikTok Live RPC (Đức Phật A Di Đà 9:16)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Noto+Serif:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/live.css" />
 </head>
 <body>
-  <!-- Khi mở link, người xem nhập tên trước khi tham gia phòng chat. OBS tự bỏ qua. -->
-  <div class="visitor-entry-overlay" id="visitorEntryOverlay" role="dialog" aria-modal="true" aria-labelledby="visitorEntryTitle">
-    <form class="visitor-entry-card" id="visitorEntryForm" autocomplete="off">
-      <div class="visitor-entry-icon" aria-hidden="true">🪷</div>
-      <h1 id="visitorEntryTitle">CHÀO MỪNG ĐẾN CHÙA ONLINE</h1>
-      <p>Xin nhập tên để tham gia phòng chat chung. Mọi người sẽ thấy tên này khi bạn gửi lời nhắn.</p>
-      <label for="visitorEntryName">Tên hiển thị của bạn</label>
-      <input type="text" id="visitorEntryName" name="visitorEntryName" minlength="2" maxlength="26" required placeholder="Ví dụ: Minh Tâm" spellcheck="false" />
-      <div class="visitor-entry-error" id="visitorEntryError" role="status" aria-live="polite"></div>
-      <button type="submit" id="visitorEntrySubmit">🙏 VÀO CHÙA & PHÒNG CHAT CHUNG</button>
-      <div class="visitor-entry-note">Không cần đăng nhập hoặc mật khẩu. Tên được lưu trên thiết bị này và có thể đổi lại bất cứ lúc nào.</div>
-      <a class="entry-admin-link" href="/login?next=%2F%3Fadmin%3D1">🔐 Đăng nhập quản trị</a>
-    </form>
-  </div>
-  <!-- Trang công khai chỉ hiện chánh điện và chat. Quản trị mở bằng đăng nhập riêng. -->
-  <nav class="public-top-nav" id="publicTopNav" aria-label="Truy cập quản trị">
-    <a id="adminLoginLink" href="/login?next=%2F%3Fadmin%3D1">🔐 Đăng nhập quản trị</a>
-    <button type="button" id="adminLogoutBtn" hidden>Đăng xuất</button>
-  </nav>
   <div class="app-workspace">
     <!-- ====================================================================
          KHUNG 9:16 CHUẨN TIKTOK LIVE / OBS BROWSER SOURCE (1080 x 1920)
@@ -68,7 +49,7 @@
         <header class="minimal-top-bar">
           <div class="live-pill" id="liveStatusPill">
             <span class="live-dot" id="liveDot"></span>
-            <span id="liveStatusText">CHÙA LINH ỨNG • ĐỨC PHẬT A DI ĐÀ</span>
+            <span id="liveStatusText">SAGS CXR TAM BẢO • ĐỨC PHẬT A DI ĐÀ</span>
           </div>
           <div class="top-Right-badges">
             <div class="mini-stat-pill">
@@ -153,9 +134,9 @@
           <div class="hud-left-col">
             <div class="hud-active-notice" id="hudActiveNotice">
               <span class="flower-bullet">💮</span>
-              <strong id="devoteeNameLine">Chánh điện đang chờ thí chủ</strong>
+              <strong id="devoteeNameLine">Thí Chủ Minh Tâm</strong>
               <span>—</span>
-              <span id="devoteeActionTag">Chưa có nghi thức</span>
+              <span id="devoteeActionTag">Dâng hương cầu bình an</span>
               <span class="flower-bullet">💮</span>
             </div>
 
@@ -218,7 +199,7 @@
     <aside class="quick-dock" id="quickDock">
       <div class="dock-header">
         <div class="dock-title">🎛️ Điều Khiển Live & RPC</div>
-        <a href="/admin" class="dock-link">Mở Admin nâng cao ↗</a>
+        <a href="/login" target="_blank" class="dock-link">Đăng nhập / Mở Admin ↗</a>
       </div>
 
       <div class="dock-section">
@@ -229,10 +210,6 @@
         <div class="dock-grid-2">
           <button class="dock-btn active-toggle" id="btnToggleTts">🎙️ Giọng Đọc: BẬT</button>
           <button class="dock-btn active-toggle" id="btnToggleMusic">🎵 Nhạc Nền: BẬT</button>
-        </div>
-        <div class="dock-input-row" style="align-items:center; flex-wrap:wrap">
-          <div id="bgMusicTrackLabel" style="flex:1;min-width:165px;color:#efd7a2;font-size:12px;line-height:1.5">🎶 Nhạc thiền: Trăng trên rừng trúc</div>
-          <button class="dock-btn" id="btnNextBgTrack" type="button">⏭️ Bài tiếp</button>
         </div>
         <div class="dock-section-title" style="margin-top:6px">🎤 Giọng Neural tiếng Việt (qua Internet)</div>
         <select id="neuralVoiceSelect" class="dock-input" aria-label="Chọn giọng Neural">
@@ -300,33 +277,7 @@
         </button>
       </div>
 
-
-      <div class="dock-section">
-        <div class="dock-section-title">📜 Nhật Ký Tương Tác Gần Nhất</div>
-        <div class="event-feed" id="eventFeed"></div>
-      </div>
-    </aside>
-    <!-- Phòng chat chỉ dành cho giao diện người xem, ngoài bảng điều khiển admin. -->
-    <section class="dock-section shared-chat-panel" id="sharedChatPanel">
-      <section class="virtual-offerings" id="virtualOfferings" aria-label="Nghi thức và nhận lộc ảo">
-        <div class="virtual-title">🧧 LỘC MAY MẮN TỪ TRỤ TRÌ</div>
-        <div class="virtual-balance-row"><span>Số dư lộc ảo của bạn</span><strong id="virtualBalance">0</strong></div>
-        <div id="virtualEnvelopeStatus" class="virtual-envelope-status">Chưa có đợt tặng lộc.</div>
-        <button type="button" class="virtual-claim-btn" id="btnClaimVirtual" disabled>🧧 MỞ LỘC MAY MẮN</button>
-        <p class="virtual-disclaimer">Lộc ảo chỉ dùng để hành lễ trong chùa. Không phải tiền thật, không phải xu TikTok, không rút hoặc đổi thưởng được.</p>
-        <label for="virtualWish">Lời nguyện của bạn</label>
-        <input id="virtualWish" type="text" maxlength="120" placeholder="Cầu gia đình bình an, sức khỏe..." />
-        <div class="virtual-ritual-grid">
-          <button type="button" data-virtual-ritual="bow">🙏 Lễ Phật <small>Miễn phí</small></button>
-          <button type="button" data-virtual-ritual="incense">🔥 Thắp hương <small>5 lộc</small></button>
-          <button type="button" data-virtual-ritual="lotus">🪷 Dâng sen <small>20 lộc</small></button>
-          <button type="button" data-virtual-ritual="lantern">🏮 Hoa đăng <small>10 lộc</small></button>
-          <button type="button" data-virtual-ritual="bell">🔔 Thỉnh chuông <small>10 lộc</small></button>
-          <button type="button" data-virtual-ritual="woodenFish">🪵 Gõ mõ <small>1 lộc</small></button>
-          <button type="button" data-virtual-ritual="fortune">🎋 Xin xăm <small>15 lộc</small></button>
-        </div>
-        <div id="virtualFeedback" class="virtual-feedback" role="status" aria-live="polite">Vào chùa, mở lộc may mắn rồi tự hành lễ.</div>
-      </section>
+      <section class="dock-section shared-chat-panel" id="sharedChatPanel">
         <div class="shared-chat-heading">
           <span class="dock-section-title">💬 PHÒNG CHAT CHUNG • CÔNG KHAI</span>
           <span class="shared-chat-online">● TRỰC TIẾP</span>
@@ -337,10 +288,7 @@
         </div>
         <form id="sharedChatForm" autocomplete="off">
           <label for="sharedChatName">Tên hiển thị trong chat</label>
-          <div class="shared-chat-name-row">
-            <input class="dock-input" id="sharedChatName" name="chatName" placeholder="Tên bạn đã đặt khi vào..." maxlength="26" readonly required />
-            <button class="dock-btn" type="button" id="btnChangeChatName">Đổi tên</button>
-          </div>
+          <input class="dock-input" id="sharedChatName" name="chatName" placeholder="Nhập tên của bạn..." maxlength="26" required />
           <label for="sharedChatText">Nội dung</label>
           <div class="shared-chat-compose">
             <input class="dock-input" id="sharedChatText" name="chatText" placeholder="Gửi lời chào hoặc cầu bình an..." maxlength="180" required />
@@ -349,21 +297,14 @@
           <div class="shared-chat-status" id="sharedChatStatus" role="status" aria-live="polite">Giới hạn 180 ký tự/tin, mỗi 4 giây một tin. Không gửi đường link.</div>
         </form>
         <button type="button" class="dock-btn" id="clearSharedChat" hidden>XÓA NỘI DUNG CHAT (ADMIN)</button>
-    </section>
+      </section>
 
+      <div class="dock-section">
+        <div class="dock-section-title">📜 Nhật Ký Tương Tác Gần Nhất</div>
+        <div class="event-feed" id="eventFeed"></div>
+      </div>
+    </aside>
   </div>
-
-  <!-- Ô nhập chat nổi: nhìn thấy ngay khi đã chọn tên, kể cả trên điện thoại. -->
-  <form id="quickChatForm" class="quick-chat-bar" autocomplete="off" hidden aria-label="Gửi tin nhắn phòng chat chung">
-    <div class="quick-chat-label"><span>💬 CHAT CHUNG</span><strong id="quickChatNickname"></strong></div>
-    <div class="quick-chat-compose">
-      <input type="text" id="quickChatText" placeholder="Nhập tin nhắn để chat với mọi người..." maxlength="180" enterkeyhint="send" aria-label="Nhập tin nhắn phòng chat chung" />
-      <button type="submit" id="quickChatSend">GỬI</button>
-      <button type="button" id="quickChatOpen" aria-label="Xem toàn bộ tin nhắn">Xem chat</button>
-      <button type="button" id="quickVirtualOpen" aria-label="Mở lộc và hành lễ">🧧 Lộc</button>
-    </div>
-    <div id="quickChatStatus" class="quick-chat-status" role="status" aria-live="polite"></div>
-  </form>
 
   <script src="/js/audio.js"></script>
   <script src="/js/particles.js"></script>

@@ -1,4 +1,4 @@
-# Thiết kế Hệ thống: TikTok Live RPC — Chùa Online (Thắp hương & Cúng bái Phật Tương tác)
+# Thiết kế Hệ thống: TikTok Live RPC — SAGS CXR Tam Bảo (Thắp hương & Cúng bái Phật Tương tác)
 
 **Ngày:** 2026-10-31  
 **Trạng thái:** Đã duyệt (Approved)
@@ -6,11 +6,11 @@
 ---
 
 ## 1. Mục tiêu
-Xây dựng hệ thống phát trực tiếp tương tác (Interactive Live Stream) dành cho TikTok Live theo chủ đề **Chùa Online / Đại Hùng Bảo Điện 2.5D (Khung hình dọc 9:16)**. Người xem trên TikTok Live tương tác qua Bình luận (Comment), Thả tim (Like), Chia sẻ/Follow và Tặng quà (Gift) hoặc qua các lời gọi **JSON-RPC 2.0** để thực hiện các nghi thức tâm linh trực tuyến:
+Xây dựng hệ thống phát trực tiếp tương tác (Interactive Live Stream) dành cho TikTok Live theo chủ đề **SAGS CXR Tam Bảo / Đại Hùng Bảo Điện 2.5D (Khung hình dọc 9:16)**. Người xem trên TikTok Live tương tác qua Bình luận (Comment), Thả tim (Like), Chia sẻ/Follow và Tặng quà (Gift) hoặc qua các lời gọi **JSON-RPC 2.0** để thực hiện các nghi thức tâm linh trực tuyến:
 1. **Thắp hương & Dâng lễ vật + Avatar thí chủ bái Phật**
 2. **Gõ mõ, Thỉnh Đại Hồng Chung & Bảng Vàng Công Đức**
 3. **Thả Đèn Hoa Đăng / Sớ Cầu Nguyện kèm đọc lời khấn (TTS)**
-4. **Gieo Quẻ / Xin Xăm Linh Ứng (Lắc ống xăm & giải quẻ trực tiếp)**
+4. **Gieo Quẻ / Xin Xăm SAGS CXR Tam Bảo (Lắc ống xăm & giải quẻ trực tiếp)**
 
 ---
 
@@ -37,7 +37,7 @@ Xây dựng hệ thống phát trực tiếp tương tác (Interactive Live Stre
      - **Mõ Gỗ Tâm Kinh** (bên phải) có dùi mõ gõ nhịp nhàng và chữ `+Công Đức` bay lên.
      - **Bàn thờ & Lư Hương Đồng Lưỡng Long Chầu Nguyệt**: Cắm các cây nhang thực tế (tăng số lượng khi có người thắp), đầu nhang cháy đỏ lập lòe.
      - **Mâm Lễ Vật**: Hiển thị Hoa sen, Mâm ngũ quả, Đèn lưu ly, Rồng vàng khi thí chủ dâng lễ.
-     - **Ống Xăm Linh Ứng**: Đặt trên bàn thờ, rung lắc vật lý khi có người xin xăm.
+     - **Ống Xăm SAGS CXR Tam Bảo**: Đặt trên bàn thờ, rung lắc vật lý khi có người xin xăm.
    - **Canvas Particle Engine (`public/js/particles.js`)**:
      - Khói nhang uốn lượn tự nhiên bằng trường nhiễu sóng (layered sine turbulence).
      - Cánh hoa sen rơi và hạt bụi vàng tâm linh.

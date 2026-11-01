@@ -11,47 +11,6 @@
     document.body.classList.add('obs-mode');
   }
 
-  // Keep public display clean. Only a signed administrator session can
-  // enable the Live controller, and only through the explicit admin URL.
-  const adminRequested = params.get('admin') === '1' && params.get('obs') !== '1';
-  const adminLoginUrl = '/login?next=%2F%3Fadmin%3D1';
-  if (adminRequested) document.body.classList.add('admin-requested');
-
-  fetch('/auth/status', { credentials: 'same-origin', cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) throw new Error('Không đọc được trạng thái đăng nhập');
-      return response.json();
-    })
-    .then(status => {
-      const authenticated = Boolean(status.authenticated);
-      const link = document.getElementById('adminLoginLink');
-      const logout = document.getElementById('adminLogoutBtn');
-      if (adminRequested && !authenticated) {
-        window.location.replace(adminLoginUrl);
-        return;
-      }
-      if (adminRequested && authenticated) {
-        document.body.classList.add('admin-mode');
-        if (link) {
-          link.textContent = '🎛️ Bảng điều khiển LIVE';
-          link.href = '/admin';
-        }
-        if (logout) logout.hidden = false;
-      } else if (authenticated && link) {
-        // The normal URL remains a public sanctuary, even for an admin.
-        link.textContent = '🎛️ Mở quản trị';
-        link.href = '/?admin=1';
-      }
-    })
-    .catch(() => {
-      if (adminRequested) window.location.replace(adminLoginUrl);
-    });
-
-  document.getElementById('adminLogoutBtn')?.addEventListener('click', async () => {
-    try { await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }); }
-    finally { window.location.replace('/'); }
-  });
-
   // 1. Tự động co giãn khung 1080x1920 vừa khít Stage Wrapper (9:16)
   const stageWrapper = document.getElementById('stageWrapper');
   const stage9x16 = document.getElementById('stage9x16');
@@ -115,7 +74,7 @@
       }
     }
     updateVoiceStatus('⏳ Đang yêu cầu giọng Neural online, vui lòng kiểm tra âm thanh...');
-    audio.enqueueTts('Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ.', {
+    audio.enqueueTts('Nam mô A Di Đà Phật. SAGS CXR Tam Bảo kính chào quý thí chủ.', {
       url: '/api/tts/demo?voice=' + encodeURIComponent(audio.onlineVoice)
     });
   });
@@ -198,17 +157,17 @@
     }).join('');
   }
 
-  // 5. Dựng Đạo Tràng 40 Phật Tử Quỳ Lễ Hai Bên Thảm Đỏ (5 Hàng x 4 Cột mỗi bên)
+  // Chỉ dựng nhân vật đã được Trụ trì duyệt. 6 VIP + 94 ghế là 100 người thật tối đa.
   const congregationHall = document.getElementById('congregationHall');
   const HALL_SEAT_COORDS = [];
 
   (function buildHallGrid() {
-    const rows = 5;
-    const colsPerSide = 4;
+    const rows = 10;
+    const colsPerSide = 5;
     for (let r = 0; r < rows; r++) {
       const progress = r / (rows - 1); // 0 (xa) -> 1 (gần)
-      const y = Math.round(1290 + progress * 355); // 1290 -> 1645
-      const scale = +(0.76 + progress * 0.28).toFixed(2);
+      const y = Math.round(1260 + progress * 405); // 1260 -> 1665
+      const scale = +(0.54 + progress * 0.28).toFixed(2);
 
       // Cánh trái thảm đỏ
       const leftInnerX = Math.round(335 - progress * 48); // mép thảm mở rộng dần
@@ -230,55 +189,57 @@
     }
   })();
 
-  let lastRenderedParticipantSignature = null;
-  let currentParticipantsCount = 0;
+  let lastRenderedLeaderboardJson = '';
 
-  // Do not create a single person unless the server reports an actual
-  // web visitor entering the sanctuary or a real TikTok join/interaction.
-  function renderCongregationHall(participants = []) {
+  function renderCongregationHall(leaderboard = []) {
     if (!congregationHall) return;
-    const attendees = Array.isArray(participants) ? participants.slice(-40) : [];
-    currentParticipantsCount = attendees.length;
-    const sig = JSON.stringify(attendees.map(v => [v.id, v.name, v.avatar]));
-    if (sig === lastRenderedParticipantSignature) return;
-    lastRenderedParticipantSignature = sig;
-    const seatOrder = [
-      3,4,2,5,11,12,10,13,19,20,18,21,27,28,26,29,
-      35,36,34,37,1,6,9,14,17,22,25,30,33,38,0,7,
-      8,15,16,23,24,31,32,39
-    ];
-    congregationHall.replaceChildren();
-    attendees.forEach((visitor, idx) => {
-      const seat = HALL_SEAT_COORDS[seatOrder[idx]];
-      if (!seat) return;
-      const el = document.createElement('div');
-      el.className = 'hall-seat';
-      el.dataset.visitorId = visitor.id;
-      el.style.left = seat.x + 'px';
-      el.style.top = seat.y + 'px';
-      el.style.zIndex = String(20 + seat.row * 2);
-      el.style.transform = 'translate(-50%, -100%) scale(' + seat.scale + ')';
-      const img = document.createElement('img');
-      img.src = '/assets/devotee.png';
-      img.alt = 'Người tham gia: ' + visitor.name;
-      img.className = 'devotee-sprite';
-      img.style.animationDelay = ((idx * .27) % 3.5).toFixed(2) + 's';
-      el.append(img);
-      const badge = document.createElement('div');
-      badge.className = 'seat-badge';
-      const avatar = document.createElement('span');
-      avatar.className = 'seat-avatar';
-      avatar.textContent = String(visitor.name || 'P').charAt(0).toUpperCase();
-      const name = document.createElement('span');
-      name.className = 'seat-username';
-      name.textContent = shortenName(visitor.name, 12);
-      badge.append(avatar, name);
-      el.append(badge);
-      congregationHall.append(el);
+    // Những người xếp từ hạng 7 trở đi ngồi ở các vị trí đầu tiên cạnh thảm đỏ
+    const hallViewers = leaderboard.slice(6);
+    const sig = JSON.stringify(hallViewers.map((d) => `${d.name}:${d.merit}`));
+    if (sig === lastRenderedLeaderboardJson && congregationHall.children.length > 0) return;
+    lastRenderedLeaderboardJson = sig;
+
+    // Ưu tiên gắn thẻ tên vào các ghế gần thảm đỏ dễ nhìn nhất
+    const labeledSeatIndices = HALL_SEAT_COORDS.map((_,i)=>i);
+    const seatViewerMap = new Map();
+    hallViewers.forEach((viewer, idx) => {
+      if (idx < labeledSeatIndices.length) {
+        seatViewerMap.set(labeledSeatIndices[idx], viewer);
+      }
     });
-    if (currentParticipantsCount === 0) {
-      document.getElementById('centralWorshipper')?.classList.remove('real-participant-active');
-    }
+
+    congregationHall.innerHTML = HALL_SEAT_COORDS.map((seat, idx) => {
+      const viewer = seatViewerMap.get(idx);
+      const badgeHtml = viewer
+        ? `
+          <div class="seat-badge">
+            <span class="seat-avatar">${
+              viewer.avatar
+                ? `<img src="${escapeHtml(viewer.avatar)}" alt="" />`
+                : escapeHtml(String(viewer.name || 'P').charAt(0).toUpperCase())
+            }</span>
+            <span class="seat-username">${escapeHtml(shortenName(viewer.name, 11))}</span>
+          </div>
+        `
+        : '';
+
+      if (!viewer) return ''; // Never render a fake devotee in an unoccupied seat.
+      return `
+        <div
+          class="hall-seat"
+          data-seat-idx="${idx}"
+          style="left: ${seat.x}px; top: ${seat.y}px; z-index: ${20 + seat.row * 2}; transform: translate(-50%, -100%) scale(${seat.scale});"
+        >
+          <img
+            src="/assets/devotee.png"
+            alt="Phật tử"
+            class="devotee-sprite"
+            style="animation-delay: ${((idx * 0.27) % 3.5).toFixed(2)}s;"
+          />
+          ${badgeHtml}
+        </div>
+      `;
+    }).join('');
   }
 
   // Preload toàn bộ 8 frame nhân vật vào bộ nhớ để chuyển frame mượt 0ms
@@ -392,10 +353,6 @@
     const avatarEl = document.getElementById('centralAvatar');
     const beam = document.getElementById('sacredLightBeam');
 
-    const centralActor = document.getElementById('centralWorshipper');
-    if (centralActor && currentParticipantsCount > 0) {
-      centralActor.classList.add('real-participant-active');
-    }
     if (nameEl) nameEl.textContent = user || 'Thí Chủ Hữu Duyên';
     if (actEl) actEl.textContent = actionLabel || '✨ Dâng hương cầu an';
     if (wishEl) wishEl.textContent = `“${wish || 'Nam Mô A Di Đà Phật, cầu bình an cát tường'}”`;
@@ -514,21 +471,20 @@
     renderIncenseSticks(st.activeIncenseSticks || 9);
 
     const lb = Array.isArray(st.leaderboard) ? st.leaderboard : [];
-    const realVisitors = Array.isArray(st.sanctuaryParticipants) ? st.sanctuaryParticipants : [];
-    // VIP cushions must not be filled from stale merit records or simulated users.
-    // Every real visitor gets exactly one seat in the sanctuary.
-    renderVipCushions([]);
-    renderCongregationHall(realVisitors);
+    const central=document.getElementById('centralWorshipper');
+    if(central)central.style.display=lb.length?'':'none'; // no virtual worshipper when room is empty
+    renderVipCushions(lb);
+    renderCongregationHall(lb);
 
     // Tên đặt thủ công được ưu tiên lúc mở sân khấu; sự kiện Live thật vẫn
     // tự cập nhật tên người tương tác sau đó.
-    if (!hasInitializedRealLeader && realVisitors.length && st.manualDisplayName) {
+    if (!hasInitializedRealLeader && lb.some(p=>p.name===st.manualDisplayName)) {
       hasInitializedRealLeader = true;
       displayManualName(st.manualDisplayName, st.manualDisplayWish);
       if (nameInput && !nameInput.value.trim()) nameInput.value = st.manualDisplayName;
     }
     // Đồng bộ tên Chủ Lễ mặc định theo người dẫn đầu thực tế nếu chưa có sự kiện mới
-    if (!hasInitializedRealLeader && realVisitors.length && lb.length > 0) {
+    if (!hasInitializedRealLeader && lb.length > 0) {
       hasInitializedRealLeader = true;
       const topDev = lb[0];
       updateCentralWorshipper(
@@ -571,8 +527,8 @@
     } else {
       liveDot?.classList.remove('connected');
       if (liveText) liveText.textContent = st.settings?.autoSim
-        ? 'CHÙA LINH ỨNG • TỰ ĐỘNG GIẢ LẬP ĐÔNG NGƯỜI'
-        : 'CHÙA LINH ỨNG • ĐỨC PHẬT A DI ĐÀ';
+        ? 'SAGS CXR TAM BẢO • TỰ ĐỘNG GIẢ LẬP ĐÔNG NGƯỜI'
+        : 'SAGS CXR TAM BẢO • ĐỨC PHẬT A DI ĐÀ';
       if (st.tiktok?.lastError) {
         setTikTokConnectStatus(`❌ Kết nối TikTok thất bại: ${st.tiktok.lastError}`, 'error');
       } else if (st.tiktok?.username) {
@@ -651,15 +607,14 @@
 
     switch (ev.type) {
       case 'bowToBuddha': {
-        const seat = Array.from(congregationHall?.querySelectorAll('.hall-seat') || [])
-          .find(node => node.dataset.visitorId === ev.uniqueId);
-        const image = seat?.querySelector('.devotee-sprite');
-        if (image) {
-          image.src = SPRITE_FRAMES.bowMid;
-          setTimeout(() => { if (image.isConnected) image.src = SPRITE_FRAMES.prostrateDeep; }, 280);
-          setTimeout(() => { if (image.isConnected) image.src = '/assets/devotee.png'; }, 1900);
+        const person = congregationHall?.querySelector('.hall-seat');
+        const img = person?.querySelector('.devotee-sprite');
+        if (img) {
+          img.src = SPRITE_FRAMES.bowMid;
+          setTimeout(() => { if (img.isConnected) img.src = SPRITE_FRAMES.prostrateDeep; }, 350);
+          setTimeout(() => { if (img.isConnected) img.src = SPRITE_FRAMES.kneel; }, 1500);
         }
-        particles.spawnFloatingMerit('🙏 ' + String(ev.user || 'Thí chủ') + ' lễ Phật', 540, 970, '#ffe8b4');
+        updateCentralWorshipper(ev.user, ev.avatar, '🙏 Lễ Phật', ev.wish, true);
         break;
       }
       case 'setStageName': {
@@ -802,337 +757,6 @@
     }, 6800);
   }
 
-
-  // --- Join at the entrance, then use the chosen nickname across all chat messages.
-  const entryOverlay = document.getElementById('visitorEntryOverlay');
-  const entryForm = document.getElementById('visitorEntryForm');
-  const entryInput = document.getElementById('visitorEntryName');
-  const entryError = document.getElementById('visitorEntryError');
-  const entrySubmit = document.getElementById('visitorEntrySubmit');
-  const chatPanel = document.getElementById('sharedChatMessages');
-  const stageChat = document.getElementById('stageChatMessages');
-  const chatForm = document.getElementById('sharedChatForm');
-  const chatName = document.getElementById('sharedChatName');
-  const chatText = document.getElementById('sharedChatText');
-  const chatStatus = document.getElementById('sharedChatStatus');
-  const chatSend = document.getElementById('sharedChatSend');
-  const quickChatForm = document.getElementById('quickChatForm');
-  const quickChatText = document.getElementById('quickChatText');
-  const quickChatSend = document.getElementById('quickChatSend');
-  const quickChatStatus = document.getElementById('quickChatStatus');
-  const quickChatNickname = document.getElementById('quickChatNickname');
-  let publicChat = [];
-  let joinedVisitorName = '';
-  let sessionId = '';
-  let virtualBalance = 0;
-  let virtualEnvelope = null;
-  let virtualAlreadyClaimed = false;
-  let virtualBusy = false;
-  const virtualBalanceView = document.getElementById('virtualBalance');
-  const virtualEnvelopeStatus = document.getElementById('virtualEnvelopeStatus');
-  const virtualClaimButton = document.getElementById('btnClaimVirtual');
-  const virtualFeedback = document.getElementById('virtualFeedback');
-  const virtualWishInput = document.getElementById('virtualWish');
-  const ritualButtons = Array.from(document.querySelectorAll('[data-virtual-ritual]'));
-
-  function setVirtualFeedback(message, error = false) {
-    if (virtualFeedback) {
-      virtualFeedback.textContent = message;
-      virtualFeedback.style.color = error ? '#ffafa0' : '#b3efc2';
-    }
-  }
-  function updateVirtualUI() {
-    if (virtualBalanceView) virtualBalanceView.textContent = virtualBalance.toLocaleString('vi-VN') + ' lộc';
-    if (virtualEnvelopeStatus) {
-      virtualEnvelopeStatus.textContent = !virtualEnvelope
-        ? '🧧 Trụ trì chưa mở đợt tặng lộc.'
-        : virtualEnvelope.active
-          ? '🧧 Đang phát lộc may mắn: còn ' + virtualEnvelope.remaining.toLocaleString('vi-VN')
-            + '/' + virtualEnvelope.total.toLocaleString('vi-VN') + ' lộc. Đã có '
-            + virtualEnvelope.claimCount + ' lượt mở.'
-          : 'Đợt tặng lộc đã kết thúc. Bạn vẫn có thể dùng số lộc đã nhận.';
-    }
-    if (virtualClaimButton) {
-      virtualClaimButton.disabled = virtualBusy || !joinedVisitorName || !virtualEnvelope?.active || virtualAlreadyClaimed;
-      virtualClaimButton.textContent = virtualAlreadyClaimed ? '✅ ĐÃ MỞ LỘC ĐỢT NÀY'
-        : virtualEnvelope?.active ? '🧧 MỞ LỘC MAY MẮN' : '🧧 CHỜ TRỤ TRÌ PHÁT LỘC';
-    }
-  }
-  async function virtualPost(route, data) {
-    const result = await fetch(route, {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    const payload = await result.json();
-    if (!result.ok || !payload.ok) throw new Error(payload.error || 'Không thể thực hiện');
-    return payload;
-  }
-  async function refreshVirtualMe() {
-    if (!joinedVisitorName || !sessionId || isObs) return;
-    try {
-      const d = await virtualPost('/api/virtual/me', { sessionId });
-      virtualBalance = Number(d.balance) || 0;
-      virtualEnvelope = d.envelope;
-      virtualAlreadyClaimed = Boolean(d.alreadyClaimed);
-      updateVirtualUI();
-    } catch (error) {
-      setVirtualFeedback('Không tải được số dư lộc: ' + error.message, true);
-    }
-  }
-  document.getElementById('btnClaimVirtual')?.addEventListener('click', async () => {
-    if (virtualBusy || !joinedVisitorName) return;
-    virtualBusy = true;
-    updateVirtualUI();
-    try {
-      const d = await virtualPost('/api/virtual/claim', { sessionId });
-      virtualBalance = d.balance;
-      virtualEnvelope = d.envelope;
-      virtualAlreadyClaimed = true;
-      setVirtualFeedback('🎊 Chúc mừng! Bạn mở được ' + d.amount + ' lộc ảo, có thể dùng ngay để hành lễ.');
-    } catch (error) {
-      setVirtualFeedback('❌ ' + error.message, true);
-      await refreshVirtualMe();
-    } finally {
-      virtualBusy = false;
-      updateVirtualUI();
-    }
-  });
-  ritualButtons.forEach(button => button.addEventListener('click', async () => {
-    if (virtualBusy) return;
-    if (!joinedVisitorName) {
-      setVirtualFeedback('Hãy nhập tên để vào chánh điện trước.', true);
-      entryOverlay?.classList.remove('is-hidden');
-      return;
-    }
-    const ritual = button.dataset.virtualRitual;
-    const wish = String(virtualWishInput?.value || '').trim();
-    virtualBusy = true;
-    ritualButtons.forEach(b => { b.disabled = true; });
-    updateVirtualUI();
-    try {
-      // A user gesture unlocks effects; the server is authoritative for balance.
-      try { audio.ensureContext(); } catch (_) {}
-      const d = await virtualPost('/api/virtual/ritual', { sessionId, ritual, wish });
-      virtualBalance = d.balance;
-      const label = button.textContent.trim().replace(/\s+/g, ' ');
-      setVirtualFeedback('🙏 Đã thực hiện ' + label + '. ' +
-        (d.cost ? 'Đã dùng ' + d.cost + ' lộc ảo.' : 'Nghi thức này miễn phí.'));
-    } catch (error) {
-      setVirtualFeedback('❌ ' + error.message, true);
-      await refreshVirtualMe();
-    } finally {
-      virtualBusy = false;
-      ritualButtons.forEach(b => { b.disabled = false; });
-      updateVirtualUI();
-    }
-  }));
-  document.getElementById('quickVirtualOpen')?.addEventListener('click', () => {
-    document.getElementById('virtualOfferings')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  fetch('/api/virtual/status', { cache: 'no-store' }).then(r => r.json()).then(d => {
-    if (d.ok) { virtualEnvelope = d.envelope; updateVirtualUI(); }
-  }).catch(() => {});
-  updateVirtualUI();
-
-  try {
-    const savedName = localStorage.getItem('temple_shared_chat_name') || '';
-    if (entryInput) entryInput.value = savedName.slice(0, 26);
-    sessionId = localStorage.getItem('temple_visitor_session_id') || '';
-  } catch (_) {}
-  function generateSessionId() {
-    if (sessionId && /^[a-z0-9_-]{12,64}$/i.test(sessionId)) return sessionId;
-    const bytes = new Uint8Array(16);
-    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(bytes);
-    else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-    sessionId = Array.from(bytes, n => n.toString(16).padStart(2, '0')).join('');
-    try { localStorage.setItem('temple_visitor_session_id', sessionId); } catch (_) {}
-    return sessionId;
-  }
-  const isObs = document.body.classList.contains('obs-mode');
-  if (isObs) entryOverlay?.classList.add('is-hidden');
-
-  async function joinRoom(name) {
-    const resp = await fetch('/api/visitors/join', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, sessionId: generateSessionId() })
-    });
-    const data = await resp.json();
-    if (!resp.ok || !data.ok) throw new Error(data.error || 'Không thể vào phòng chùa');
-    return data.visitor;
-  }
-  entryForm?.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (isObs) return;
-    const name = String(entryInput?.value || '').trim();
-    if (name.length < 2 || name.length > 26 || !/[a-zA-ZÀ-ỹ].*[a-zA-ZÀ-ỹ]/u.test(name)) {
-      if (entryError) entryError.textContent = 'Hãy nhập tên từ 2–26 ký tự, có ít nhất hai chữ cái.';
-      return;
-    }
-    if (entrySubmit) entrySubmit.disabled = true;
-    if (entryError) entryError.textContent = 'Đang đưa bạn vào chánh điện...';
-    try {
-      const visitor = await joinRoom(name);
-      joinedVisitorName = visitor.name;
-      if (chatName) chatName.value = joinedVisitorName;
-      if (quickChatNickname) quickChatNickname.textContent = '👤 ' + joinedVisitorName;
-      if (quickChatForm) quickChatForm.hidden = false;
-      const manualInput = document.getElementById('inputDevoteeName');
-      if (manualInput && !manualInput.value) manualInput.value = joinedVisitorName;
-      try { localStorage.setItem('temple_shared_chat_name', joinedVisitorName); } catch (_) {}
-      entryOverlay?.classList.add('is-hidden');
-      if (entryError) entryError.textContent = '';
-      setChatFeedback('🙏 Chào mừng ' + joinedVisitorName + ' vào chánh điện! Bạn có thể trò chuyện với mọi người.');
-      await refreshVirtualMe();
-    } catch (error) {
-      if (entryError) entryError.textContent = error.message || 'Không thể vào chùa. Vui lòng thử lại.';
-    } finally {
-      if (entrySubmit) entrySubmit.disabled = false;
-    }
-  });
-  document.getElementById('btnChangeChatName')?.addEventListener('click', () => {
-    if (isObs) return;
-    if (entryInput) entryInput.value = joinedVisitorName || entryInput.value;
-    entryOverlay?.classList.remove('is-hidden');
-    entryInput?.focus();
-  });
-
-  function setChatFeedback(text, isError = false) {
-    if (chatStatus) {
-      chatStatus.textContent = text;
-      chatStatus.style.color = isError ? '#ffaba0' : '#aaf1c0';
-    }
-    if (quickChatStatus) {
-      quickChatStatus.textContent = text;
-      quickChatStatus.style.color = isError ? '#ffaba0' : '#aaf1c0';
-    }
-  }
-  function chatTime(time) {
-    try { return new Date(time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); }
-    catch (_) { return ''; }
-  }
-  function renderSharedChat() {
-    if (chatPanel) {
-      const nearBottom = chatPanel.scrollTop + chatPanel.clientHeight >= chatPanel.scrollHeight - 60;
-      chatPanel.replaceChildren();
-      if (!publicChat.length) {
-        const empty = document.createElement('p');
-        empty.className = 'shared-chat-empty';
-        empty.textContent = 'Phòng chat đang trống. Hãy gửi lời chào đầu tiên! 🙏';
-        chatPanel.append(empty);
-      }
-      for (const message of publicChat.slice(-60)) {
-        const item = document.createElement('article');
-        item.className = 'shared-chat-line';
-        const meta = document.createElement('div');
-        meta.className = 'shared-chat-meta';
-        const author = document.createElement('strong');
-        author.className = 'shared-chat-author' + (message.source === 'tiktok' ? ' tiktok' : '');
-        author.textContent = message.name || 'Thí chủ';
-        const source = document.createElement('span');
-        source.className = 'shared-chat-source';
-        source.textContent = (message.source === 'tiktok' ? 'TikTok LIVE' : 'Web') + ' · ' + chatTime(message.timestamp);
-        meta.append(author, source);
-        const body = document.createElement('p');
-        body.className = 'shared-chat-body';
-        body.textContent = message.text || '';
-        item.append(meta, body);
-        chatPanel.append(item);
-      }
-      if (nearBottom) chatPanel.scrollTop = chatPanel.scrollHeight;
-    }
-    if (stageChat) {
-      stageChat.replaceChildren();
-      const last = publicChat.slice(-3);
-      if (!last.length) {
-        const empty = document.createElement('div');
-        empty.className = 'stage-chat-placeholder';
-        empty.textContent = 'Chưa có lời nhắn. Nam mô A Di Đà Phật 🙏';
-        stageChat.append(empty);
-      }
-      for (const m of last) {
-        const row = document.createElement('div');
-        row.className = 'live-chat-overlay-line' + (m.source === 'tiktok' ? ' tiktok' : '');
-        const name = document.createElement('strong');
-        name.textContent = (m.source === 'tiktok' ? '♪ ' : '') + shortenName(m.name, 13) + ':';
-        const body = document.createElement('span');
-        body.textContent = String(m.text || '').slice(0, 90);
-        row.append(name, body);
-        stageChat.append(row);
-      }
-    }
-  }
-  function setChatHistory(messages) {
-    publicChat = Array.isArray(messages) ? messages.slice(-60) : [];
-    renderSharedChat();
-  }
-  function appendChatMessage(message) {
-    if (!message || !message.id || publicChat.some(m => m.id === message.id)) return;
-    publicChat.push(message);
-    if (publicChat.length > 60) publicChat.shift();
-    renderSharedChat();
-  }
-  // Shared send logic for the visible floating composer and full chat panel.
-  async function sendPublicChat(input, sendButton) {
-    if (!joinedVisitorName || !sessionId) {
-      setChatFeedback('Hãy nhập tên để vào phòng trước khi gửi tin.', true);
-      entryOverlay?.classList.remove('is-hidden');
-      entryInput?.focus();
-      return;
-    }
-    const text = String(input?.value || '').trim();
-    if (!text || text.length > 180) {
-      setChatFeedback('Nội dung tin nhắn cần từ 1–180 ký tự.', true);
-      return;
-    }
-    if (sendButton) sendButton.disabled = true;
-    setChatFeedback('Đang gửi tin nhắn...');
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, name: joinedVisitorName, text })
-      });
-      const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Không gửi được tin');
-      if (input) input.value = '';
-      appendChatMessage(data.message);
-      setChatFeedback('✅ Đã gửi tin vào chat chung — mọi người đều thấy');
-    } catch (error) {
-      setChatFeedback('❌ ' + (error.message || 'Không gửi được tin'), true);
-    } finally {
-      if (sendButton) sendButton.disabled = false;
-    }
-  }
-
-  chatForm?.addEventListener('submit', event => {
-    event.preventDefault();
-    sendPublicChat(chatText, chatSend);
-  });
-  quickChatForm?.addEventListener('submit', event => {
-    event.preventDefault();
-    sendPublicChat(quickChatText, quickChatSend);
-  });
-  document.getElementById('quickChatOpen')?.addEventListener('click', () => {
-    const fullChat = document.getElementById('sharedChatPanel');
-    fullChat?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
-  const clearChatBtn = document.getElementById('clearSharedChat');
-  fetch('/auth/status').then(r => r.json()).then(auth => {
-    if (clearChatBtn) clearChatBtn.hidden = !auth.authenticated;
-  }).catch(() => {});
-  clearChatBtn?.addEventListener('click', async () => {
-    if (!window.confirm('Xóa toàn bộ tin nhắn của phòng chat hiện tại?')) return;
-    const r = await fetch('/api/chat', { method: 'DELETE' });
-    if (r.ok) setChatHistory([]);
-  });
-  // WebSocket supplies the initial history and subsequent messages. HTTP
-  // provides a one-time fallback while a free service is still waking.
-  fetch('/api/chat').then(r => r.json()).then(d => {
-    if (d.ok && !publicChat.length) setChatHistory(d.messages);
-  }).catch(() => {});
-
-
   // 8. Kết nối JSON-RPC 2.0 WebSocket & Gửi Lệnh RPC
   let ws = null;
   let rpcId = 1;
@@ -1144,17 +768,7 @@
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.method === 'chat.sync') {
-          setChatHistory(msg.params);
-        } else if (msg.method === 'chat.message') {
-          appendChatMessage(msg.params);
-        } else if (msg.method === 'virtual.updated') {
-          virtualEnvelope = msg.params?.envelope || null;
-          updateVirtualUI();
-          refreshVirtualMe();
-        } else if (msg.method === 'temple.state') {
-          virtualEnvelope = msg.params?.virtualEnvelope || null;
-          updateVirtualUI();
+        if (msg.method === 'temple.state') {
           updateUIState(msg.params);
         } else if (msg.method === 'temple.event') {
           if (msg.params?.state) updateUIState(msg.params.state);
@@ -1350,18 +964,6 @@
     updateVoiceStatus(audio.ttsEnabled
       ? 'Giọng Neural đã bật. Bấm NGHE THỬ để kiểm tra.'
       : 'Giọng đọc đã tắt trên thiết bị này.');
-  });
-
-  const bgMusicTrackLabel = document.getElementById('bgMusicTrackLabel');
-  audio.onBgTrackChange = (title, error) => {
-    if (bgMusicTrackLabel) {
-      bgMusicTrackLabel.textContent = error ? '⚠️ ' + error : '🎶 Nhạc thiền: ' + title;
-      bgMusicTrackLabel.style.color = error ? '#ffaba0' : '#efd7a2';
-    }
-  };
-  document.getElementById('btnNextBgTrack')?.addEventListener('click', () => {
-    audio.ensureContext();
-    audio.nextBackgroundTrack();
   });
 
   document.getElementById('btnToggleMusic')?.addEventListener('click', (e) => {
