@@ -8,7 +8,56 @@ const PRICES = Object.freeze({
 });
 function createLuckyPool({randomInt=crypto.randomInt, now=()=>Date.now()}={}) {
   let current = null, nextId = 0;
-  const balances = new Map(), lastAction = new Map();
+  const balances = new Map(), lastAction = new Map(), meditation = new Map();
+  const MEDITATION_COIN_PER_MINUTE = 10;
+  const MEDITATION_PULSE_MAX_MS = 35000;
+  function meditationView(id) {
+    const rec=meditation.get(id);
+    if(!rec)return {active:false,elapsedSeconds:0,totalMinutes:0,earned:0,ratePerMinute:MEDITATION_COIN_PER_MINUTE};
+    if(rec.active && now()-rec.lastPulse>MEDITATION_PULSE_MAX_MS) rec.active=false;
+    return {active:rec.active,elapsedSeconds:Math.floor(rec.totalElapsed/1000),
+      totalMinutes:Math.floor(rec.totalElapsed/60000),
+      earned:rec.earned,ratePerMinute:MEDITATION_COIN_PER_MINUTE};
+  }
+  function meditationStart(id) {
+    if(!id)return {ok:false,error:'Hãy vào chánh điện trước khi ngồi thiền'};
+    const t=now(),previous=meditation.get(id);
+    if(previous?.active && t-previous.lastPulse<=MEDITATION_PULSE_MAX_MS)
+      return {ok:true,...meditationView(id),balance:balance(id)};
+    const rec={active:true,lastPulse:t,totalElapsed:previous?.totalElapsed||0,
+      earned:previous?.earned||0};
+    // New sessions restart the partial minute, not previously awarded coins.
+    rec.totalElapsed=Math.floor(rec.totalElapsed/60000)*60000;
+    meditation.set(id,rec);
+    return {ok:true,...meditationView(id),balance:balance(id)};
+  }
+  function meditationPulse(id) {
+    const rec=meditation.get(id);
+    if(!rec?.active)return {ok:false,error:'Bạn chưa bắt đầu ngồi thiền hoặc phiên đã dừng'};
+    const time=now(),delta=time-rec.lastPulse;
+    if(delta<0||delta>MEDITATION_PULSE_MAX_MS){
+      rec.active=false;
+      return {ok:false,error:'Phiên thiền đã tạm dừng vì mất kết nối hoặc trang không hoạt động'};
+    }
+    rec.lastPulse=time;
+    rec.totalElapsed+=delta;
+    // Each complete, continuously-verified minute adds 10 internal coins.
+    const expected=Math.floor(rec.totalElapsed/60000)*MEDITATION_COIN_PER_MINUTE;
+    const awarded=Math.max(0,expected-rec.earned);
+    const next=balance(id)+awarded;
+    if(!Number.isSafeInteger(next)){
+      rec.active=false;
+      return {ok:false,error:'Số dư đạt giới hạn'};
+    }
+    if(awarded)balances.set(id,next);
+    rec.earned=expected;
+    return {ok:true,...meditationView(id),justEarned:awarded,balance:next};
+  }
+  function meditationStop(id) {
+    const rec=meditation.get(id);
+    if(rec) rec.active=false;
+    return {ok:true,...meditationView(id),balance:balance(id)};
+  }
   function view() {
     if(!current)return null;
     return {id:current.id,total:current.total,remaining:current.remaining,
@@ -17,7 +66,7 @@ function createLuckyPool({randomInt=crypto.randomInt, now=()=>Date.now()}={}) {
   }
   function balance(id) {return balances.get(id)||0;}
   function status(id) {return {ok:true,envelope:view(),balance:balance(id),
-    claimed:!!current?.claims.has(id),prices:PRICES};}
+    claimed:!!current?.claims.has(id),prices:PRICES,meditation:meditationView(id)};}
   function open(amount) {
     const total=Number(amount);
     if(!Number.isSafeInteger(total)||total<1||total>100000)
@@ -63,6 +112,7 @@ function createLuckyPool({randomInt=crypto.randomInt, now=()=>Date.now()}={}) {
       return {ok:false,error:'Không hoàn thành nghi thức. Lộc chưa bị trừ.'};
     }
   }
-  return {view,balance,status,open,close,claim,spend,prices:PRICES};
+  return {view,balance,status,open,close,claim,spend,prices:PRICES,
+    meditationView,meditationStart,meditationPulse,meditationStop};
 }
 module.exports={createLuckyPool,PRICES};
