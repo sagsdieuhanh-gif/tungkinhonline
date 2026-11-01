@@ -3,7 +3,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const cors = require('cors');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 
@@ -1094,18 +1094,81 @@ async function handleRpcCall(method, params = {}) {
 // 8. EXPRESS + WEBSOCKET SERVER
 // ============================================================================
 const app = express();
-app.use(cors());
+
 app.use(express.json({ limit: '2mb' }));
 app.use('/tts-cache', express.static(TTS_CACHE_DIR, { maxAge: '7d' }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/admin', (_req, res) => {
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const failedLogins = new Map();
+
+function authorized(req) {
+  if (!ADMIN_PASSWORD) return false;
+  const cookies = (req.headers.cookie || '').split(';').map(x => x.trim());
+  const raw = cookies.find(x => x.startsWith('tko_admin='));
+  if (!raw) return false;
+  const value = raw.substring('tko_admin='.length);
+  const match = /^(\\d{13})\\.([a-f0-9]{64})$/.exec(value);
+  if (!match) return false;
+  const expiry = Number(match[1]);
+  if (!Number.isSafeInteger(expiry) || expiry < Date.now() || expiry > Date.now() + SESSION_TTL_MS) return false;
+  const expected = crypto.createHmac('sha256', ADMIN_PASSWORD).update(match[1]).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(match[2], 'hex'), Buffer.from(expected, 'hex'));
+}
+
+function matchesPassword(value) {
+  if (!ADMIN_PASSWORD || typeof value !== 'string' || value.length > 256) return false;
+  const supplied = crypto.createHash('sha256').update(value).digest();
+  const expected = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
+  return crypto.timingSafeEqual(supplied, expected);
+}
+
+function requireAdmin(req, res, next) {
+  if (!authorized(req)) return res.status(401).json({ ok: false, error: 'Yêu cầu đăng nhập quản trị tại /login' });
+  next();
+}
+
+app.get('/login', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+app.get('/auth/status', (req, res) => {
+  res.json({ authenticated: authorized(req), configured: Boolean(ADMIN_PASSWORD) });
+});
+app.post('/auth/login', (req, res) => {
+  const address = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const record = failedLogins.get(address) || { count: 0, start: now };
+  if (now - record.start > 15 * 60 * 1000) { record.count = 0; record.start = now; }
+  if (record.count >= 10) return res.status(429).json({ ok: false, error: 'Thử lại sau 15 phút' });
+  if (!matchesPassword(req.body?.password)) {
+    record.count += 1;
+    failedLogins.set(address, record);
+    return res.status(401).json({ ok: false, error: 'Mật khẩu không đúng' });
+  }
+  failedLogins.delete(address);
+  const expiry = String(now + SESSION_TTL_MS);
+  const signature = crypto.createHmac('sha256', ADMIN_PASSWORD).update(expiry).digest('hex');
+  res.setHeader('Set-Cookie', 'tko_admin=' + expiry + '.' + signature +
+    '; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax');
+  res.json({ ok: true });
+});
+app.post('/auth/logout', (_req, res) => {
+  res.setHeader('Set-Cookie', 'tko_admin=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax');
+  res.json({ ok: true });
+});
+app.get(['/admin', '/admin.html'], (req, res) => {
+  if (!authorized(req)) return res.redirect(302, '/login');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // HTTP JSON-RPC 2.0 Endpoint
 app.post('/rpc', async (req, res) => {
   const { jsonrpc, id, method, params } = req.body || {};
+  if (!authorized(req) && method !== 'temple.getState' && method !== 'temple.ttsStatus') {
+    return res.status(401).json({ jsonrpc: '2.0', id: id ?? null, error: { code: -32001, message: 'Đăng nhập quản trị tại /login' } });
+  }
   if (!method) {
     return res.status(400).json({
       jsonrpc: '2.0',
@@ -1130,7 +1193,7 @@ app.post('/rpc', async (req, res) => {
 });
 
 // ZeroTTS HTTP Endpoint (Mai Chi default)
-app.all('/api/tts', async (req, res) => {
+app.all('/api/tts', requireAdmin, async (req, res) => {
   const text = (req.body?.text || req.query?.text || '').trim();
   const voice = (req.body?.voice || req.query?.voice || state.settings.ttsVoice || 'maichi').trim();
   if (!text) {
@@ -1145,7 +1208,15 @@ app.get('/api/state', (_req, res) => {
 });
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ req, origin }, done) => {
+  if (!origin) return done(true);
+  try {
+    const parsed = new URL(origin);
+    done((parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.host === req.headers.host);
+  } catch (_) {
+    done(false, 403, 'Invalid Origin');
+  }
+} });
 
 function broadcastNotification(method, params) {
   const payload = JSON.stringify({
@@ -1160,7 +1231,8 @@ function broadcastNotification(method, params) {
   }
 }
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  const isAdmin = authorized(req);
   ws.send(
     JSON.stringify({
       jsonrpc: '2.0',
@@ -1178,6 +1250,9 @@ wss.on('connection', (ws) => {
     }
     if (!msg || !msg.method) return;
     try {
+      if (!isAdmin && msg.method !== 'temple.getState' && msg.method !== 'temple.ttsStatus') {
+        throw new Error('Yêu cầu đăng nhập quản trị tại /login');
+      }
       const result = await handleRpcCall(msg.method, msg.params || {});
       if (msg.id !== undefined) {
         ws.send(
@@ -1202,7 +1277,10 @@ wss.on('connection', (ws) => {
   });
 });
 
-const zeroTts = new ZeroTTSManager();
+const zeroTts = process.env.ENABLE_TTS === '1' ? new ZeroTTSManager() : {
+  getStatus: () => ({ ready: false, status: 'disabled_on_free_plan', voice: 'maichi' }),
+  synthesize: async () => ({ ok: false, error: 'ZeroTTS chưa được bật trên gói Render Free (RAM 512 MB)' })
+};
 
 server.listen(PORT, () => {
   console.log(`============================================================`);
@@ -1212,8 +1290,8 @@ server.listen(PORT, () => {
   console.log(`🔌 JSON-RPC 2.0 Endpoint   : http://localhost:${PORT}/rpc (ws://localhost:${PORT}/ws)`);
   console.log(`============================================================`);
 
-  // Tự động kết nối tới @zenfacts_vn ngay khi khởi động server
-  const defaultChannel = process.env.TIKTOK_USER || state.tiktok?.username || 'zenfacts_vn';
+  // Chỉ tự kết nối khi chủ dự án chủ động cấu hình TIKTOK_USER.
+  const defaultChannel = process.env.TIKTOK_USER || '';
   if (defaultChannel) {
     connectTikTokLive(defaultChannel).catch((err) => {
       console.warn(`[Auto-Connect @${defaultChannel}] Chưa kết nối được ngay:`, err.message);
