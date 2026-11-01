@@ -1531,9 +1531,31 @@ app.post('/api/temple/loc/claim',guestOrigin,(req,res)=>{
  if(r.ok)locNotify();
  res.status(r.ok?200:409).json(r);
 });
+// Server-authoritative meditation: the attendee must be inside the temple.
+// A visible page sends a pulse every 15s; gaps >35s stop earning.
+app.post('/api/temple/meditation/start',guestOrigin,(req,res)=>{
+ const person=locPerson(req,res);
+ if(!person)return res.status(403).json({ok:false,error:'Hãy vào chánh điện để ngồi thiền'});
+ res.setHeader('Cache-Control','no-store');
+ res.json(locPool.meditationStart(person.id));
+});
+app.post('/api/temple/meditation/pulse',guestOrigin,(req,res)=>{
+ const person=locPerson(req,res);
+ if(!person)return res.status(403).json({ok:false,error:'Bạn chưa ở trong chánh điện'});
+ const result=locPool.meditationPulse(person.id);
+ if(result.ok&&result.justEarned>0) locNotify();
+ res.setHeader('Cache-Control','no-store');
+ res.status(result.ok?200:409).json(result);
+});
+app.post('/api/temple/meditation/stop',guestOrigin,(req,res)=>{
+ const person=locPerson(req,res);
+ if(!person)return res.status(403).json({ok:false,error:'Bạn chưa ở trong chánh điện'});
+ res.setHeader('Cache-Control','no-store');
+ res.json(locPool.meditationStop(person.id));
+});
 app.post('/api/temple/loc/ritual',guestOrigin,(req,res)=>{
  const person=locPerson(req,res);
- if(!person)return res.status(403).json({ok:false,error:'Chờ Trụ trì duyệt trước khi hành lễ'});
+ if(!person)return res.status(403).json({ok:false,error:'Hãy vào chánh điện trước khi hành lễ'});
  const action=String(req.body?.action||'');
  const r=locPool.spend(person.id,action,()=>locRitual(person,action,req.body?.wish));
  res.status(r.ok?200:409).json(r);
