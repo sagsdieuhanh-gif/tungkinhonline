@@ -761,6 +761,11 @@
   const chatText = document.getElementById('sharedChatText');
   const chatStatus = document.getElementById('sharedChatStatus');
   const chatSend = document.getElementById('sharedChatSend');
+  const quickChatForm = document.getElementById('quickChatForm');
+  const quickChatText = document.getElementById('quickChatText');
+  const quickChatSend = document.getElementById('quickChatSend');
+  const quickChatStatus = document.getElementById('quickChatStatus');
+  const quickChatNickname = document.getElementById('quickChatNickname');
   let publicChat = [];
   let joinedVisitorName = '';
   let sessionId = '';
@@ -805,6 +810,8 @@
       const visitor = await joinRoom(name);
       joinedVisitorName = visitor.name;
       if (chatName) chatName.value = joinedVisitorName;
+      if (quickChatNickname) quickChatNickname.textContent = '👤 ' + joinedVisitorName;
+      if (quickChatForm) quickChatForm.hidden = false;
       const manualInput = document.getElementById('inputDevoteeName');
       if (manualInput && !manualInput.value) manualInput.value = joinedVisitorName;
       try { localStorage.setItem('temple_shared_chat_name', joinedVisitorName); } catch (_) {}
@@ -825,9 +832,14 @@
   });
 
   function setChatFeedback(text, isError = false) {
-    if (!chatStatus) return;
-    chatStatus.textContent = text;
-    chatStatus.style.color = isError ? '#ffaba0' : '#aaf1c0';
+    if (chatStatus) {
+      chatStatus.textContent = text;
+      chatStatus.style.color = isError ? '#ffaba0' : '#aaf1c0';
+    }
+    if (quickChatStatus) {
+      quickChatStatus.textContent = text;
+      quickChatStatus.style.color = isError ? '#ffaba0' : '#aaf1c0';
+    }
   }
   function chatTime(time) {
     try { return new Date(time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); }
@@ -894,33 +906,50 @@
     if (publicChat.length > 60) publicChat.shift();
     renderSharedChat();
   }
-  chatForm?.addEventListener('submit', async event => {
-    event.preventDefault();
+  // Shared send logic for the visible floating composer and full chat panel.
+  async function sendPublicChat(input, sendButton) {
     if (!joinedVisitorName || !sessionId) {
-      setChatFeedback('Hãy chọn tên tại màn hình chào trước khi gửi tin.', true);
+      setChatFeedback('Hãy nhập tên để vào phòng trước khi gửi tin.', true);
       entryOverlay?.classList.remove('is-hidden');
+      entryInput?.focus();
       return;
     }
-    const text = String(chatText?.value || '').trim();
+    const text = String(input?.value || '').trim();
     if (!text || text.length > 180) {
       setChatFeedback('Nội dung tin nhắn cần từ 1–180 ký tự.', true);
       return;
     }
-    if (chatSend) chatSend.disabled = true;
+    if (sendButton) sendButton.disabled = true;
     setChatFeedback('Đang gửi tin nhắn...');
     try {
       const response = await fetch('/api/chat', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, name: joinedVisitorName, text })
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Không gửi được tin');
-      if (chatText) chatText.value = '';
+      if (input) input.value = '';
       appendChatMessage(data.message);
-      setChatFeedback('✅ Đã gửi tin vào phòng chat chung');
-    } catch (err) {
-      setChatFeedback('❌ ' + (err.message || 'Không gửi được tin'), true);
-    } finally { if (chatSend) chatSend.disabled = false; }
+      setChatFeedback('✅ Đã gửi tin vào chat chung — mọi người đều thấy');
+    } catch (error) {
+      setChatFeedback('❌ ' + (error.message || 'Không gửi được tin'), true);
+    } finally {
+      if (sendButton) sendButton.disabled = false;
+    }
+  }
+
+  chatForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    sendPublicChat(chatText, chatSend);
+  });
+  quickChatForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    sendPublicChat(quickChatText, quickChatSend);
+  });
+  document.getElementById('quickChatOpen')?.addEventListener('click', () => {
+    const fullChat = document.getElementById('sharedChatPanel');
+    fullChat?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
   const clearChatBtn = document.getElementById('clearSharedChat');
   fetch('/auth/status').then(r => r.json()).then(auth => {
