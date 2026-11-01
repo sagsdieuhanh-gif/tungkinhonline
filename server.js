@@ -348,15 +348,25 @@ function saveState() {
   }, 1200);
 }
 
+// Actor IDs on public stage are one-way, process-local handles. Never disclose
+// real visitor session cookies/identifiers in public events or leaderboards.
+const STAGE_ID_SALT = crypto.randomBytes(32);
+function stageActorId(raw) {
+  const identity = String(raw || '').replace(/^tt:/, '').trim();
+  return identity ? 'actor_' + crypto.createHmac('sha256', STAGE_ID_SALT)
+    .update(identity).digest('hex').slice(0, 24) : '';
+}
+function stagePublicEvent(evt) {
+  if (!evt || typeof evt !== 'object') return evt;
+  return { ...evt, uniqueId: stageActorId(evt.uniqueId) };
+}
 function getLeaderboard(limit = 6) {
-  // An attendee enters voluntarily; their FULL stable session key must be
-  // exposed for correct stage sprite matching, including named VIP seats.
-  // Only the private devotee-merit lookup uses the legacy 40-char key.
+  // Use the same anonymous actor handles in seating and event notifications.
   return room.list().map(p=>{
     const identity=p.id.startsWith('tt:')?p.id.slice(3):p.id;
     const savedKey=identity.slice(0,40);
     const d=state.devotees[savedKey]||{};
-    return {name:p.name,uniqueId:identity,avatar:d.avatar||p.avatar||'',merit:d.merit||0,incense:d.incense||0,lastWish:d.lastWish||'',group:p.group,joinedAt:p.joinedAt};
+    return {name:p.name,uniqueId:stageActorId(identity),avatar:d.avatar||p.avatar||'',merit:d.merit||0,incense:d.incense||0,lastWish:d.lastWish||'',group:p.group,joinedAt:p.joinedAt};
   }).sort((a,b)=>b.merit-a.merit||a.joinedAt-b.joinedAt).slice(0,limit).map((d,index)=>({...d,rank:index+1}));
 }
 // Bộ lọc chặn ký tự lạ (Cuneiform 𒐫, Zalgo, Braille, ký tự spam) & từ ngữ phản cảm
@@ -472,7 +482,7 @@ function getPublicState() {
     lastWelcome: mostRecentWelcome && Date.now()-mostRecentWelcome.timestamp<8500 ? mostRecentWelcome : null,
     manualDisplayName: state.manualDisplayName || '',
     manualDisplayWish: state.manualDisplayWish || '',
-    recentEvents: state.recentEvents.slice(0, 15),
+    recentEvents: state.recentEvents.slice(0, 15).map(stagePublicEvent),
     settings: state.settings,
     tiktok: state.tiktok,
     tts: zeroTts ? zeroTts.getStatus() : { ready: false, status: 'init', voice: 'maichi' }
@@ -1633,10 +1643,14 @@ const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ req, ori
 } });
 
 function broadcastNotification(method, params) {
+  // Sanitization applies to every broadcast, including admin-triggered rituals.
+  const safeParams = method === 'temple.event' && params?.event
+    ? {...params, event: stagePublicEvent(params.event)}
+    : params;
   const payload = JSON.stringify({
     jsonrpc: '2.0',
     method,
-    params
+    params: safeParams
   });
   for (const client of wss.clients) {
     if (client.readyState === 1) {
