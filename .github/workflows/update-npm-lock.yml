@@ -1,0 +1,31 @@
+name: Update npm lockfile
+on:
+  push:
+    paths:
+      - package.json
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Update dependency lock without running scripts
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit package lock
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "Lockfile already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: update package-lock for neural TTS"
+          git push
