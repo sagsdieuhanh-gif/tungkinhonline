@@ -1,0 +1,41 @@
+name: Import DiChuaOnline background music
+on:
+  push:
+    paths:
+      - .github/workflows/import-dichua-music.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-music:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Copy original audio tracks from DiChuaOnline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public/assets/music
+          curl --fail --location --retry 3 --silent --show-error \
+            https://raw.githubusercontent.com/sagsdieuhanh-gif/dichuaonline/main/assets/music/music1.mp3 \
+            --output public/assets/music/music1.mp3
+          curl --fail --location --retry 3 --silent --show-error \
+            https://raw.githubusercontent.com/sagsdieuhanh-gif/dichuaonline/main/assets/music/music2.mp3 \
+            --output public/assets/music/music2.mp3
+          test "$(git hash-object public/assets/music/music1.mp3)" = "aba954a4ece3ee26352f4fe3b68d752a60be1228"
+          test "$(git hash-object public/assets/music/music2.mp3)" = "58f6cef7195166a6c348e0c928f166972e2e4bbc"
+      - name: Commit copied audio to destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/assets/music/music1.mp3 public/assets/music/music2.mp3
+          if git diff --cached --quiet; then
+            echo "Both music tracks already imported"
+            exit 0
+          fi
+          git commit -m "assets: import DiChuaOnline original meditation background tracks"
+          git push
