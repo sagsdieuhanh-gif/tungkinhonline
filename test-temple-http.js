@@ -18,6 +18,13 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.match(rootMarkup,/SAGS CXR Tam Bảo/);
  assert.match(rootMarkup,/TRỤ TRÌ · ĐĂNG NHẬP/);
  assert.match(rootMarkup,/href="\/trutri"/);
+ assert.match(rootMarkup,/id="luckyEnvelopeRain"/,'visitor screen has envelope animation layer');
+ assert.match(rootMarkup,/id="luckyEnvelopePrompt"/,'visitor gets one-tap claim notice');
+ assert.match(rootMarkup,/prefers-reduced-motion:reduce/,'respect reduced motion accessibility');
+ assert.match(rootMarkup,/!Boolean\(alreadyClaimed\)/,'effect requires unclaimed personal status');
+ assert.match(rootMarkup,/!document.hidden/,'animation does not run in background');
+ assert.match(rootMarkup,/locallyClaimedRounds.add\(luckyRound\)/,'claim hides rain immediately');
+ assert.doesNotMatch(obsHtml,/id="luckyEnvelopePrompt"/,'OBS must not display personal unclaimed gifts');
  assert.equal((await get('/index.html')).status,302);
  assert.equal((await get('/chandien')).status,302);
  assert.equal((await get('/trutri')).status,302);
