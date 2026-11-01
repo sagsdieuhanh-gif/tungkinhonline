@@ -10,6 +10,19 @@
   <link rel="stylesheet" href="/css/live.css" />
 </head>
 <body>
+  <!-- Khi mở link, người xem nhập tên trước khi tham gia phòng chat. OBS tự bỏ qua. -->
+  <div class="visitor-entry-overlay" id="visitorEntryOverlay" role="dialog" aria-modal="true" aria-labelledby="visitorEntryTitle">
+    <form class="visitor-entry-card" id="visitorEntryForm" autocomplete="off">
+      <div class="visitor-entry-icon" aria-hidden="true">🪷</div>
+      <h1 id="visitorEntryTitle">CHÀO MỪNG ĐẾN CHÙA ONLINE</h1>
+      <p>Xin nhập tên để tham gia phòng chat chung. Mọi người sẽ thấy tên này khi bạn gửi lời nhắn.</p>
+      <label for="visitorEntryName">Tên hiển thị của bạn</label>
+      <input type="text" id="visitorEntryName" name="visitorEntryName" minlength="2" maxlength="26" required placeholder="Ví dụ: Minh Tâm" spellcheck="false" />
+      <div class="visitor-entry-error" id="visitorEntryError" role="status" aria-live="polite"></div>
+      <button type="submit" id="visitorEntrySubmit">🙏 VÀO CHÙA & PHÒNG CHAT CHUNG</button>
+      <div class="visitor-entry-note">Không cần đăng nhập hoặc mật khẩu. Tên được lưu trên thiết bị này và có thể đổi lại bất cứ lúc nào.</div>
+    </form>
+  </div>
   <div class="app-workspace">
     <!-- ====================================================================
          KHUNG 9:16 CHUẨN TIKTOK LIVE / OBS BROWSER SOURCE (1080 x 1920)
@@ -288,7 +301,10 @@
         </div>
         <form id="sharedChatForm" autocomplete="off">
           <label for="sharedChatName">Tên hiển thị trong chat</label>
-          <input class="dock-input" id="sharedChatName" name="chatName" placeholder="Nhập tên của bạn..." maxlength="26" required />
+          <div class="shared-chat-name-row">
+            <input class="dock-input" id="sharedChatName" name="chatName" placeholder="Tên bạn đã đặt khi vào..." maxlength="26" readonly required />
+            <button class="dock-btn" type="button" id="btnChangeChatName">Đổi tên</button>
+          </div>
           <label for="sharedChatText">Nội dung</label>
           <div class="shared-chat-compose">
             <input class="dock-input" id="sharedChatText" name="chatText" placeholder="Gửi lời chào hoặc cầu bình an..." maxlength="180" required />
