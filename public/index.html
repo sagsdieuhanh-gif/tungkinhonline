@@ -308,6 +308,25 @@
     </aside>
     <!-- Phòng chat chỉ dành cho giao diện người xem, ngoài bảng điều khiển admin. -->
     <section class="dock-section shared-chat-panel" id="sharedChatPanel">
+      <section class="virtual-offerings" id="virtualOfferings" aria-label="Nghi thức và nhận lộc ảo">
+        <div class="virtual-title">🧧 LỘC MAY MẮN TỪ TRỤ TRÌ</div>
+        <div class="virtual-balance-row"><span>Số dư lộc ảo của bạn</span><strong id="virtualBalance">0</strong></div>
+        <div id="virtualEnvelopeStatus" class="virtual-envelope-status">Chưa có đợt tặng lộc.</div>
+        <button type="button" class="virtual-claim-btn" id="btnClaimVirtual" disabled>🧧 MỞ LỘC MAY MẮN</button>
+        <p class="virtual-disclaimer">Lộc ảo chỉ dùng để hành lễ trong chùa. Không phải tiền thật, không phải xu TikTok, không rút hoặc đổi thưởng được.</p>
+        <label for="virtualWish">Lời nguyện của bạn</label>
+        <input id="virtualWish" type="text" maxlength="120" placeholder="Cầu gia đình bình an, sức khỏe..." />
+        <div class="virtual-ritual-grid">
+          <button type="button" data-virtual-ritual="bow">🙏 Lễ Phật <small>Miễn phí</small></button>
+          <button type="button" data-virtual-ritual="incense">🔥 Thắp hương <small>5 lộc</small></button>
+          <button type="button" data-virtual-ritual="lotus">🪷 Dâng sen <small>20 lộc</small></button>
+          <button type="button" data-virtual-ritual="lantern">🏮 Hoa đăng <small>10 lộc</small></button>
+          <button type="button" data-virtual-ritual="bell">🔔 Thỉnh chuông <small>10 lộc</small></button>
+          <button type="button" data-virtual-ritual="woodenFish">🪵 Gõ mõ <small>1 lộc</small></button>
+          <button type="button" data-virtual-ritual="fortune">🎋 Xin xăm <small>15 lộc</small></button>
+        </div>
+        <div id="virtualFeedback" class="virtual-feedback" role="status" aria-live="polite">Vào chùa, mở lộc may mắn rồi tự hành lễ.</div>
+      </section>
         <div class="shared-chat-heading">
           <span class="dock-section-title">💬 PHÒNG CHAT CHUNG • CÔNG KHAI</span>
           <span class="shared-chat-online">● TRỰC TIẾP</span>
@@ -341,6 +360,7 @@
       <input type="text" id="quickChatText" placeholder="Nhập tin nhắn để chat với mọi người..." maxlength="180" enterkeyhint="send" aria-label="Nhập tin nhắn phòng chat chung" />
       <button type="submit" id="quickChatSend">GỬI</button>
       <button type="button" id="quickChatOpen" aria-label="Xem toàn bộ tin nhắn">Xem chat</button>
+      <button type="button" id="quickVirtualOpen" aria-label="Mở lộc và hành lễ">🧧 Lộc</button>
     </div>
     <div id="quickChatStatus" class="quick-chat-status" role="status" aria-live="polite"></div>
   </form>
