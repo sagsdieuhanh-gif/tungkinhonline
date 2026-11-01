@@ -33,7 +33,7 @@
       const data=await resp.json();
       if(!resp.ok||!data.ok){message.textContent=data.error||'Đăng nhập thất bại';return;}
       const next = new URLSearchParams(location.search).get('next');
-      window.location.replace(next === '/' ? '/' : '/admin');
+      window.location.replace(next === '/trutri' ? '/trutri' : next === '/' ? '/' : '/admin');
     }catch(err){message.textContent='Không thể kết nối máy chủ';}
   });
 </script>
