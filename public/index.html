@@ -322,6 +322,17 @@
     </aside>
   </div>
 
+  <!-- Ô nhập chat nổi: nhìn thấy ngay khi đã chọn tên, kể cả trên điện thoại. -->
+  <form id="quickChatForm" class="quick-chat-bar" autocomplete="off" hidden aria-label="Gửi tin nhắn phòng chat chung">
+    <div class="quick-chat-label"><span>💬 CHAT CHUNG</span><strong id="quickChatNickname"></strong></div>
+    <div class="quick-chat-compose">
+      <input type="text" id="quickChatText" placeholder="Nhập tin nhắn để chat với mọi người..." maxlength="180" enterkeyhint="send" aria-label="Nhập tin nhắn phòng chat chung" />
+      <button type="submit" id="quickChatSend">GỬI</button>
+      <button type="button" id="quickChatOpen" aria-label="Xem toàn bộ tin nhắn">Xem chat</button>
+    </div>
+    <div id="quickChatStatus" class="quick-chat-status" role="status" aria-live="polite"></div>
+  </form>
+
   <script src="/js/audio.js"></script>
   <script src="/js/particles.js"></script>
   <script src="/js/live.js"></script>
