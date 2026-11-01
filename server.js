@@ -299,6 +299,11 @@ function loadState() {
 
 let state = loadState();
 
+// A fresh sanctuary starts empty. Only real web entry or TikTok MEMBER events
+// add participants; neither past merit records nor auto-simulation fills seats.
+const sanctuaryVisitors = new Map();
+const visitorJoinLimits = new Map();
+
 let saveTimer = null;
 function saveState() {
   clearTimeout(saveTimer);
@@ -446,6 +451,7 @@ function getPublicState() {
     haloIntensity: state.haloIntensity,
     offerings: state.offerings,
     leaderboard: getLeaderboard(24),
+    sanctuaryParticipants: [...sanctuaryVisitors.values()].slice(-80),
     manualDisplayName: state.manualDisplayName || '',
     manualDisplayWish: state.manualDisplayWish || '',
     recentEvents: state.recentEvents.slice(0, 15),
@@ -897,8 +903,9 @@ async function connectTikTokLive(usernameOrUrl) {
 
   tiktokConn.on(WebcastEvent.MEMBER, (data) => {
     const { user, uniqueId, avatar } = extractUserFromEvent(data);
-    recordDevotee(user, uniqueId, avatar, 1, 0, 0, 'Đã vào Chánh Điện lễ Phật');
-    broadcastNotification('temple.state', getPublicState());
+    // Only a genuine TikTok room-entry event creates a visible congregant.
+    // Joining never awards imaginary merit or fills vacant seats.
+    addSanctuaryVisitor('tiktok:' + String(uniqueId || user), user, 'tiktok', avatar);
   });
 
   tiktokConn.on(WebcastEvent.CHAT, (data) => {
@@ -1213,6 +1220,36 @@ const onlineTts = {
 
 // Phòng chat chung: người xem trang web và bình luận TikTok chung một luồng.
 // Giữ tối đa 80 tin trong RAM (Render Free không có ổ đĩa lưu trữ bền vững).
+
+function addSanctuaryVisitor(id, name, source, avatar = '') {
+  const cleanName = sanitizeUserName(name);
+  if (cleanName === 'Thí Chủ Hữu Duyên') return null;
+  const cleanId = String(id || '').slice(0, 110);
+  if (!cleanId) return null;
+  const existing = sanctuaryVisitors.get(cleanId);
+  if (existing) {
+    if (existing.name !== cleanName || (avatar && !existing.avatar)) {
+      existing.name = cleanName;
+      if (avatar) existing.avatar = String(avatar).slice(0, 300);
+      broadcastNotification('temple.state', getPublicState());
+    }
+    return existing;
+  }
+  const newVisitor = {
+    id: cleanId,
+    name: cleanName,
+    avatar: source === 'tiktok' ? String(avatar || '').slice(0, 300) : '',
+    source: source === 'tiktok' ? 'tiktok' : 'web',
+    joinedAt: new Date().toISOString()
+  };
+  sanctuaryVisitors.set(cleanId, newVisitor);
+  while (sanctuaryVisitors.size > 80) {
+    sanctuaryVisitors.delete(sanctuaryVisitors.keys().next().value);
+  }
+  broadcastNotification('temple.state', getPublicState());
+  return newVisitor;
+}
+
 const sharedChat = [];
 const chatRate = new Map();
 const tiktokChatRate = new Map();
@@ -1384,6 +1421,35 @@ app.get('/api/tts/demo', async (req, res) => {
 
 app.get('/api/state', (_req, res) => {
   res.json(getPublicState());
+});
+
+app.post('/api/visitors/join', (req, res) => {
+  const origin = String(req.headers.origin || '');
+  if (origin) {
+    try { if (new URL(origin).host !== req.headers.host) return res.status(403).json({ ok: false, error: 'Nguồn yêu cầu không hợp lệ' }); }
+    catch (_) { return res.status(403).json({ ok: false, error: 'Nguồn yêu cầu không hợp lệ' }); }
+  }
+  const nameRaw = String(req.body?.name || '').trim();
+  const sessionId = String(req.body?.sessionId || '').trim();
+  const name = sanitizeUserName(nameRaw);
+  if (nameRaw.length < 2 || nameRaw.length > 26 || name === 'Thí Chủ Hữu Duyên' ||
+      !/^[a-z0-9_-]{12,64}$/i.test(sessionId)) {
+    return res.status(400).json({ ok: false, error: 'Tên phải có 2–26 ký tự hợp lệ' });
+  }
+  const key = 'web:' + sessionId;
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const limit = visitorJoinLimits.get(ip) || { begin: now, count: 0 };
+  if (now - limit.begin > 3600000) { limit.begin = now; limit.count = 0; }
+  if (!sanctuaryVisitors.has(key) && limit.count >= 18) {
+    return res.status(429).json({ ok: false, error: 'Có quá nhiều lượt vào phòng từ thiết bị này' });
+  }
+  if (!sanctuaryVisitors.has(key)) limit.count++;
+  visitorJoinLimits.set(ip, limit);
+  if (visitorJoinLimits.size > 2000) visitorJoinLimits.clear();
+  const visitor = addSanctuaryVisitor(key, name, 'web');
+  if (!visitor) return res.status(400).json({ ok: false, error: 'Tên không hợp lệ' });
+  res.json({ ok: true, visitor, participants: sanctuaryVisitors.size });
 });
 
 app.get('/api/chat', (_req, res) => {
