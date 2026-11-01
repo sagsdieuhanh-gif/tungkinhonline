@@ -45,7 +45,7 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  const pub=await greeting.json();
  assert.ok(pub.lastWelcome);
  assert.equal(pub.lastWelcome.name,'Phật tử A');
- assert.match(pub.lastWelcome.wish,/^Chúc Phật tử A /);
+ assert.match(pub.lastWelcome.wish,/^Chúc con /);
  const medStart=await post('/api/temple/meditation/start',{},cookie);
  assert.equal(medStart.status,200);
  assert.equal((await medStart.json()).active,true);
@@ -66,11 +66,16 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.match(abbotMarkup,/SAGS CXR Tam Bảo/);
  assert.match(abbotMarkup,/id="abbotTemplePreview"/);
  assert.match(abbotMarkup,/src="\/obs"/);
- assert.match(abbotMarkup,/Tự động vào chánh điện/);
+ assert.match(abbotMarkup,/TRUNG TÂM ĐIỀU HÀNH TRỤ TRÌ/);
+ assert.match(abbotMarkup,/id="abbotPanelChat"/);
+ assert.match(abbotMarkup,/id="abbotPanelPeople"/);
+ assert.match(abbotMarkup,/id="abbotPanelLoc"/);
+ assert.match(abbotMarkup,/id="abbotPanelControls"/);
  assert.match(abbotMarkup,/PHÁT LỘC MAY MẮN/);
- assert.match(abbotMarkup,/Quản lý chat/);
+ assert.match(abbotMarkup,/Chat chung/);
  assert.match(abbotMarkup,/TRỤ TRÌ/);
- assert.match(abbotMarkup,/ĐÃ XÁC THỰC/);
+ assert.match(abbotMarkup,/TRỤ TRÌ TRUNG KIÊN/);
+ assert.doesNotMatch(abbotMarkup,/ĐÃ XÁC THỰC/);
  assert.match(abbotMarkup,/id="abbotChatForm"/);
  let queue=await get('/api/trutri/room',{headers:{Cookie:adminCookie}});
  const q=await queue.json();
@@ -105,7 +110,7 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.equal(messages[1].role,'abbot');
  assert.equal(messages[1].source,'abbot');
  assert.equal(messages[1].automated,true);
- assert.ok(messages[1].text.startsWith('Chúc Phật tử A '));
+ assert.ok(messages[1].text.startsWith('Chào con Phật tử A. Chúc con '));
  assert.ok(messages.every(m=>!('senderId' in m)));
  const abbotSend=await post('/api/trutri/chat/send',{text:'Nam mô A Di Đà Phật, chào các Phật tử.'},adminCookie);
  assert.equal(abbotSend.status,200);
@@ -114,7 +119,7 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.equal(messages[2].source,'abbot');
  assert.equal(messages[2].role,'abbot');
  assert.equal(messages[2].automated,undefined);
- assert.equal(messages[2].name,'Trụ trì');
+ assert.equal(messages[2].name,'Trụ Trì Trung Kiên');
  const muted=await post('/api/trutri/mute',{id,muted:true},adminCookie);assert.equal(muted.status,200);
  const blocked=await post('/api/temple/chat',{text:'Thử lần 2'},cookie);assert.equal(blocked.status,403);
  state=await get('/api/temple/chat',{headers:{Cookie:cookie}});assert.equal((await state.json()).messages.length,3,'Muted users cannot trigger blessings');
