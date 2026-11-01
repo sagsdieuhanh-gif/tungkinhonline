@@ -17,7 +17,14 @@
 .abbot-preview .hint{flex:1 1 135px;margin:0}
 .abbot-preview-actions{flex:1 1 135px;align-items:flex-start}
 }
-</style></head><body><main><h1>🙏 Trụ trì · SAGS CXR Tam Bảo</h1>
+.abbot-identity{display:inline-flex;gap:8px;align-items:center;background:linear-gradient(120deg,#eccd80,#b88737);color:#261408;border-radius:11px;border:1px solid #fff0b2;padding:10px 14px;font-weight:900;box-shadow:0 5px 20px #0008;margin:4px 0 10px}
+.abbot-chat-item{border:2px solid #f8d47c;border-radius:12px;background:linear-gradient(135deg,#633b18,#352013);padding:12px;margin:10px 0;box-shadow:0 6px 24px #0005}
+.abbot-chat-item .name{font-size:14px;font-weight:900;color:#ffe3a0}
+.abbot-chat-item .text{font-size:14px;line-height:1.65;color:#fff4d8}
+.abbot-chat-form{margin:12px 0 14px;display:flex;gap:8px;flex-wrap:wrap}
+.abbot-chat-form input{flex:1;min-width:180px;font-size:16px;background:#160e0a;color:#ffe9bc}
+.abbot-chat-note{font-size:12px;color:#ddc6a5;line-height:1.5}
+</style></head><body><main><div class="abbot-identity">👑 TRỤ TRÌ <span>· ĐÃ XÁC THỰC</span></div><h1>🙏 Trụ trì · SAGS CXR Tam Bảo</h1>
 <p class="hint">Bảng duyệt riêng, phải đăng nhập mật khẩu quản trị. Mọi bình luận web và TikTok đưa vào hàng chờ, không ai tự vào chùa.</p>
 <p class="row"><a href="/admin">Bảng điều khiển nghi lễ / đọc kinh</a><a href="/obs" target="_blank" rel="noopener">Màn hình OBS</a><a href="/" target="_blank" rel="noopener">Trang xin vào</a></p>
 <div class="admin-workspace">
@@ -43,7 +50,7 @@
 <div class="status" id="locAdminStatus" role="status" aria-live="polite">Đang tải quỹ lộc...</div>
 <p class="hint">Lộc còn dư sẽ không tự cấp cho ai. Lộc người xem đã nhận có thể tiếp tục sử dụng trong phiên máy chủ hiện tại.</p>
 </section>
-<section class="card"><h2>💬 Quản lý chat <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn mới nhất trên web và TikTok LIVE. Trụ trì xóa tin, tắt/mở chat hoặc xóa toàn bộ.</p><button class="danger" type="button" id="clearBtn">XÓA TOÀN BỘ TIN NHẮN</button><div id="chat"></div></section>
+<section class="card"><h2>💬 Quản lý chat <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn của Trụ trì được tô vàng nổi bật. Mỗi lời nhắn của khách đã duyệt sẽ được hệ thống gửi một câu chúc có tên người đó.</p><form class="abbot-chat-form" id="abbotChatForm"><input id="abbotChatText" type="text" maxlength="180" required autocomplete="off" placeholder="👑 Trụ trì gửi lời chào hoặc lời chúc..." aria-label="Tin nhắn Trụ trì"><button type="submit" class="gold" id="abbotChatSend">👑 GỬI TIN TRỤ TRÌ</button></form><p class="abbot-chat-note" id="abbotChatNotice">Tin nhắn gửi bằng tài khoản quản trị có nhãn TRỤ TRÌ · ĐÃ XÁC THỰC. Lời chúc tự động cũng có nhãn riêng.</p><button class="danger" type="button" id="clearBtn">XÓA TOÀN BỘ TIN NHẮN</button><div id="chat"></div></section>
   </div>
 </div>
 </main><script>
@@ -70,7 +77,13 @@ async function load(){
  line(people,p.name+' · '+(p.group==='internal'?'NỘI BỘ':'TIKTOK'),p.source==='web'?'Vào từ website':'Vào từ TikTok',[btn(p.muted?'Mở lại chat':'Tắt chat','',()=>send('/api/trutri/mute',{id:p.id,muted:!p.muted})),btn('Mời ra','danger',()=>send('/api/trutri/remove',{id:p.id}))])}
  if(!s.inside.length)people.textContent='Chưa có người tham gia.';
  const chat=$('chat');chat.replaceChildren();for(const m of [...s.messages].reverse()){
- line(chat,m.name+' · '+(m.source==='tiktok'?'TikTok':'Web'),m.text,[btn('Xóa tin','danger',()=>send('/api/trutri/chat/delete',{id:m.id}))])}
+ const isAbbot=m.source==='abbot'&&m.role==='abbot';
+ const previous=chat.children.length;
+ line(chat,isAbbot?'👑 TRỤ TRÌ · ĐÃ XÁC THỰC'+(m.automated?' · 🌸 CHÚC TỰ ĐỘNG':'')
+    :m.name+' · '+(m.source==='tiktok'?'TikTok':'Web'),
+    m.text,[btn('Xóa tin','danger',()=>send('/api/trutri/chat/delete',{id:m.id}))]);
+ if(isAbbot&&chat.children[previous])chat.children[previous].classList.add('abbot-chat-item');
+ }
  if(!s.messages.length)chat.textContent='Chưa có tin nhắn.';
  }catch(e){$('info').textContent=e.message}}
 async function refreshLocAdmin(){
@@ -101,6 +114,19 @@ $('locAdminClose').onclick=async()=>{
  catch(e){$('locAdminStatus').textContent='❌ '+e.message}
  finally{b.disabled=false}
 };
+$('abbotChatForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const field=$('abbotChatText'),button=$('abbotChatSend'),status=$('abbotChatNotice');
+ const text=field.value.trim();if(!text)return;
+ button.disabled=true;status.textContent='Đang gửi tin với vai trò Trụ trì...';
+ try{
+   await api('/api/trutri/chat/send',{text});
+   field.value='';
+   status.textContent='✅ Tin nhắn Trụ trì đã gửi vào phòng chat chung.';
+   last='';await load();
+ }catch(err){status.textContent='❌ '+err.message}
+ finally{button.disabled=false}
+});
 $('clearBtn').onclick=()=>{if(confirm('Xóa toàn bộ tin nhắn đang lưu trên máy chủ?'))send('/api/trutri/chat/clear',{})};
 refreshLocAdmin();setInterval(refreshLocAdmin,4500);
 setInterval(load,3500);load();
