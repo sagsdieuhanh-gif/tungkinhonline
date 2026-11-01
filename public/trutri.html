@@ -68,7 +68,7 @@ main{max-width:1280px}
  .admin-chat-panel .abbot-chat-form button{min-width:85px;font-size:11px;padding:10px 7px}
  .admin-chat-panel #chat{max-height:48dvh}
 }
-</style></head><body><main><div class="abbot-identity">👑 TRỤ TRÌ TRUNG KIÊN</div><h1>🙏 Trụ Trì Trung Kiên · SAGS CXR Tam Bảo</h1>
+</style></head><body><main><div class="abbot-identity">👑 Trụ Trì Trung Kiên</div><h1>🙏 Trụ Trì Trung Kiên · SAGS CXR Tam Bảo</h1>
 <p class="hint">Chánh điện mở cửa tự do: người xem nhập tên là vào ngay, không phải chờ duyệt. Trụ trì có thể xem người đang có mặt, mời ra, khóa chat, phát lộc và gửi lời chúc.</p>
 <p class="hint">Một nơi để xem chánh điện, chat, quản lý người tham gia, phát lộc và điều khiển nghi lễ. Chọn chức năng ở các thẻ bên phải.</p>
 <div class="admin-workspace">
@@ -161,7 +161,7 @@ async function load(){
  const chat=$('chat');chat.replaceChildren();for(const m of [...s.messages].reverse()){
  const isAbbot=m.source==='abbot'&&m.role==='abbot';
  const previous=chat.children.length;
- line(chat,isAbbot?'👑 TRỤ TRÌ TRUNG KIÊN'+(m.automated?' · 🌸 CHÚC TỰ ĐỘNG':'')
+ line(chat,isAbbot?'👑 Trụ Trì Trung Kiên'+(m.automated?' · 🌸 CHÚC TỰ ĐỘNG':'')
     :m.name+' · '+(m.source==='tiktok'?'TikTok':'Web'),
     m.text,[btn('Xóa tin','danger',()=>send('/api/trutri/chat/delete',{id:m.id}))]);
  if(isAbbot&&chat.children[previous])chat.children[previous].classList.add('abbot-chat-item');
