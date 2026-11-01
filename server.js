@@ -304,8 +304,13 @@ function loadState() {
 let state = loadState();
 // The actual room is ephemeral: an approved person must be physically present in this session.
 state.settings.autoSim=false; // never create fake followers.
+let mostRecentWelcome = null;
+let welcomeSequence = 0;
 const room=createTempleRoom({approvedNames:state.approvedDharmaNames,onRegistryChange:list=>{state.approvedDharmaNames=list;saveState()},notify:(method,params)=>{
-  broadcastNotification(method,params);
+  if(method==='temple.joined'){
+    mostRecentWelcome={...params,id:'welcome'+(++welcomeSequence),timestamp:Date.now()};
+    broadcastNotification('temple.joined',mostRecentWelcome);
+  }else broadcastNotification(method,params);
   if(method==='temple.chat')broadcastNotification('chat.message',{
     id:params.id,name:params.name,text:params.text,source:params.source,
     role:params.role||null,automated:Boolean(params.automated),timestamp:params.at
@@ -461,6 +466,7 @@ function getPublicState() {
     offerings: state.offerings,
     leaderboard: getLeaderboard(100),
     attendance: room.publicRoom(),
+    lastWelcome: mostRecentWelcome && Date.now()-mostRecentWelcome.timestamp<8500 ? mostRecentWelcome : null,
     manualDisplayName: state.manualDisplayName || '',
     manualDisplayWish: state.manualDisplayWish || '',
     recentEvents: state.recentEvents.slice(0, 15),
