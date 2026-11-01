@@ -74,7 +74,7 @@
       }
     }
     updateVoiceStatus('⏳ Đang yêu cầu giọng Neural online, vui lòng kiểm tra âm thanh...');
-    audio.enqueueTts('Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ.', {
+    audio.enqueueTts('Nam mô A Di Đà Phật. SAGS CXR Tam Bảo kính chào quý thí chủ.', {
       url: '/api/tts/demo?voice=' + encodeURIComponent(audio.onlineVoice)
     });
   });
@@ -527,8 +527,8 @@
     } else {
       liveDot?.classList.remove('connected');
       if (liveText) liveText.textContent = st.settings?.autoSim
-        ? 'CHÙA LINH ỨNG • TỰ ĐỘNG GIẢ LẬP ĐÔNG NGƯỜI'
-        : 'CHÙA LINH ỨNG • ĐỨC PHẬT A DI ĐÀ';
+        ? 'SAGS CXR TAM BẢO • TỰ ĐỘNG GIẢ LẬP ĐÔNG NGƯỜI'
+        : 'SAGS CXR TAM BẢO • ĐỨC PHẬT A DI ĐÀ';
       if (st.tiktok?.lastError) {
         setTikTokConnectStatus(`❌ Kết nối TikTok thất bại: ${st.tiktok.lastError}`, 'error');
       } else if (st.tiktok?.username) {
