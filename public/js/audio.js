@@ -34,6 +34,7 @@ class TempleAudioEngine {
     this.bgTrackIndex = 0;
     this.bgTrackFailures = 0;
     this.bgMusicError = '';
+    this.onBgTrackChange = null;
     this.bgAudio = new Audio(this.bgTracks[0].src);
     this.bgAudio.loop = false; // Bản 1 kết thúc → bản 2 → bản 1...
     this.bgAudio.preload = 'metadata';
@@ -50,6 +51,7 @@ class TempleAudioEngine {
       } else {
         this.bgMusicError = 'Không tải được nhạc DiChuaOnline; hãy kiểm tra kết nối và tải lại trang.';
         console.warn('[Temple Music]', this.bgMusicError);
+        this.onBgTrackChange?.(this.getCurrentMusicTitle(), this.bgMusicError);
       }
     };
     this.ttsQueue = [];
@@ -128,6 +130,7 @@ class TempleAudioEngine {
     this.bgAudio.src = this.bgTracks[this.bgTrackIndex].src;
     this.bgAudio.load();
     if (this.bgMusicEnabled) this.startZenAmbience();
+    this.onBgTrackChange?.(this.getCurrentMusicTitle(), '');
     return this.getCurrentMusicTitle();
   }
 
