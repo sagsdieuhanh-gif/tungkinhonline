@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Đăng nhập quản trị · Tụng Kinh Online</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;background:radial-gradient(circle at top,#45301d,#130e0c 75%);color:#f8ecd0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:22px}
+    main{width:min(440px,100%);padding:34px 26px;border:1px solid #947240;border-radius:18px;background:#201811;box-shadow:0 20px 70px #0008}
+    h1{font-size:23px;text-align:center;margin:5px 0 8px}p{text-align:center;color:#cabb9d;line-height:1.6;margin:0 0 26px}
+    label{display:block;font-weight:600;margin-bottom:9px}input{width:100%;padding:15px;border-radius:9px;border:1px solid #8b764f;background:#110e0b;color:#fff;font-size:16px}
+    button{width:100%;border:0;border-radius:9px;padding:14px;margin-top:16px;background:#d4a84e;color:#221609;font-size:16px;font-weight:700;cursor:pointer}
+    a{display:block;text-align:center;color:#d7b66a;margin-top:23px}#message{min-height:26px;color:#ffb8a6;text-align:center;margin-top:15px;font-size:14px}
+  </style>
+</head>
+<body><main>
+  <h1>🪷 TỤNG KINH ONLINE</h1>
+  <p>Đăng nhập để kết nối TikTok và điều khiển các nghi thức. Khách truy cập vẫn có thể xem màn hình Live.</p>
+  <form id="form">
+    <label for="password">Mật khẩu quản trị</label>
+    <input id="password" type="password" autocomplete="current-password" required autofocus maxlength="256">
+    <button type="submit">Đăng nhập</button>
+  </form>
+  <div role="status" id="message"></div>
+  <a href="/">← Xem màn hình Live</a>
+</main>
+<script>
+  const form=document.getElementById('form'), message=document.getElementById('message');
+  form.addEventListener('submit',async(e)=>{
+    e.preventDefault();message.textContent='Đang xác thực...';
+    try{
+      const resp=await fetch('/auth/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('password').value})});
+      const data=await resp.json();
+      if(!resp.ok||!data.ok){message.textContent=data.error||'Đăng nhập thất bại';return;}
+      window.location.replace('/admin');
+    }catch(err){message.textContent='Không thể kết nối máy chủ';}
+  });
+</script>
+</body></html>
