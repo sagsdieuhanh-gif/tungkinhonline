@@ -15,6 +15,9 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  let root=await get('/');assert.equal(root.status,200);
  const rootMarkup=await root.text();
  assert.match(rootMarkup,/VÀO CHÁNH ĐIỆN NGAY/);
+ assert.match(rootMarkup,/buddha-cinema.css/,'bottom cinema stylesheet');
+ assert.match(rootMarkup,/buddha-cinema.js/,'bottom cinema player');
+ assert.match(rootMarkup,/data-theater-role="visitor"/);
  assert.match(rootMarkup,/SAGS CXR Tam Bảo/);
  assert.match(rootMarkup,/TRỤ TRÌ · ĐĂNG NHẬP/);
  assert.match(rootMarkup,/href="\/trutri"/);
@@ -86,6 +89,8 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  const abbotMarkup=await abbot.text();
  assert.match(abbotMarkup,/SAGS CXR Tam Bảo/);
  assert.match(abbotMarkup,/id="abbotTemplePreview"/);
+ assert.match(abbotMarkup,/data-theater-role="abbot"/);
+ assert.match(abbotMarkup,/buddha-cinema.js/);
  assert.match(abbotMarkup,/src="\/obs"/);
  assert.match(abbotMarkup,/TRUNG TÂM ĐIỀU HÀNH TRỤ TRÌ/);
  assert.match(abbotMarkup,/id="abbotPanelChat"/);
@@ -152,7 +157,11 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
    const latest=state.recentEvents[0];
    assert.equal(latest.type,eventType,'Wrong stage event for '+action);
    assert.equal(latest.user,'Phật tử A','Guest action must use visitor name');
-   assert.equal(latest.uniqueId,id,'Guest action must use session identity');
+   const matchingActor=state.leaderboard.find(a=>a.name==='Phật tử A');
+   assert.ok(matchingActor,'Guest has a visible seat');
+   assert.match(latest.uniqueId,/^actor_[a-f0-9]{24}$/,'Stage handle uses a pseudonym');
+   assert.equal(latest.uniqueId,matchingActor.uniqueId,'Guest action must animate their own seat');
+   assert.notEqual(latest.uniqueId,id,'Never expose the private session identifier');
    if(['lotus','fruit','lamp'].includes(action)){
      assert.equal(latest.giftType,action);
      assert.equal(latest.coins,0,'Do not generate real TikTok coins');
