@@ -17,7 +17,7 @@ const STATE_FILE = path.join(DATA_DIR, 'merit-state.json');
 fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
 
 // ============================================================================
-// 1. BỘ 18 QUẺ LINH XĂM CHÙA LINH ỨNG (FORTUNE STICKS DECK)
+// 1. BỘ 18 QUẺ LINH XĂM SAGS CXR TAM BẢO (FORTUNE STICKS DECK)
 // ============================================================================
 const FORTUNE_DECK = [
   {
@@ -240,7 +240,7 @@ class ZeroTTSManager {
 }
 
 // ============================================================================
-// 3. TRẠNG THÁI CHÙA ONLINE & BẢNG VÀNG CÔNG ĐỨC
+// 3. TRẠNG THÁI SAGS CXR TAM BẢO & BẢNG VÀNG CÔNG ĐỨC
 // ============================================================================
 const DEFAULT_STATE = {
   totalIncense: 108,
@@ -1393,7 +1393,7 @@ app.get('/api/tts/demo', async (req, res) => {
   if (record.count >= 8) return res.status(429).send('Đã vượt số lượt đọc thử trong một giờ');
   record.count++;
   demoVoiceLimit.set(source, record);
-  const demo = 'Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ thập phương. Nguyện cầu bình an và hạnh phúc.';
+  const demo = 'Nam mô A Di Đà Phật. SAGS CXR Tam Bảo kính chào quý thí chủ thập phương. Nguyện cầu bình an và hạnh phúc.';
   const result = await zeroTts.synthesize(demo, req.query.voice);
   if (!result.ok) return res.status(503).json(result);
   res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -1413,7 +1413,7 @@ const sameOrigin=(req)=>{
  try{return new URL(origin).host===req.headers.host}catch{return false}
 };
 const guestOrigin=(req,res,next)=>{
- if(!sameOrigin(req))return res.status(403).json({error:'Yêu cầu phải gửi từ website Chùa Linh Ứng'});
+ if(!sameOrigin(req))return res.status(403).json({error:'Yêu cầu phải gửi từ website SAGS CXR Tam Bảo'});
  next();
 };
 app.get('/api/temple/me',(req,res)=>{
@@ -1627,7 +1627,7 @@ const zeroTts = process.env.ENABLE_TTS === '1' ? new ZeroTTSManager() : onlineTt
 
 server.listen(PORT, () => {
   console.log(`============================================================`);
-  console.log(`🪷 CHÙA ONLINE TIKTOK LIVE RPC ĐÃ KHỞI ĐỘNG`);
+  console.log(`🪷 SAGS CXR TAM BẢO TIKTOK LIVE RPC ĐÃ KHỞI ĐỘNG`);
   console.log(`📺 Màn hình Live (9:16 OBS): http://localhost:${PORT}`);
   console.log(`🎛️ Bảng điều khiển RPC Admin: http://localhost:${PORT}/admin`);
   console.log(`🔌 JSON-RPC 2.0 Endpoint   : http://localhost:${PORT}/rpc (ws://localhost:${PORT}/ws)`);
