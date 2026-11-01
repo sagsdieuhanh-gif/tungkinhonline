@@ -17,12 +17,26 @@
 
   function fitStage() {
     if (!stageWrapper || !stage9x16) return;
-    const rect = stageWrapper.getBoundingClientRect();
-    const scale = rect.width / 1080;
-    stage9x16.style.transform = `scale(${scale})`;
+    // Content width excludes the mobile stage border; resize on reflow.
+    const width = stageWrapper.clientWidth || stageWrapper.getBoundingClientRect().width;
+    if (!width || !Number.isFinite(width)) return;
+    stage9x16.style.transform = `scale(${width / 1080})`;
   }
-  window.addEventListener('resize', fitStage);
-  fitStage();
+  window.addEventListener('resize', fitStage, { passive: true });
+  window.addEventListener('orientationchange', () => requestAnimationFrame(fitStage), { passive: true });
+  if (typeof ResizeObserver !== 'undefined' && stageWrapper) {
+    new ResizeObserver(fitStage).observe(stageWrapper);
+  }
+  requestAnimationFrame(fitStage);
+
+  // The mobile-friendly JPG loads faster. Fall back to the original PNG if
+  // needed rather than leaving a solid dark stage on a failed image request.
+  const sanctuaryImage = document.querySelector('.sanctuary-bg-img');
+  sanctuaryImage?.addEventListener('error', () => {
+    if (!sanctuaryImage.src.endsWith('/assets/amitabha_stage.png')) {
+      sanctuaryImage.src = '/assets/amitabha_stage.png';
+    }
+  });
 
   // 2. Khởi tạo Particle Engine & Audio Engine (ZeroTTS Mai Chi)
   const canvas = document.getElementById('templeCanvas');
