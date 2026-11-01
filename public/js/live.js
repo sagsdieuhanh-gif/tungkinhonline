@@ -146,7 +146,7 @@
       const dev = leaderboard[idx];
       if (!dev) return '';
       return `
-        <div class="vip-devotee-slot" style="left: ${slot.x}px; top: ${slot.y}px; z-index: ${12 + idx};">
+        <div class="vip-devotee-slot" data-devotee-id="${escapeHtml(String(dev.uniqueId || ''))}" data-devotee-name="${escapeHtml(String(dev.name || ''))}" style="left: ${slot.x}px; top: ${slot.y}px; z-index: ${12 + idx};">
           <img src="/assets/devotee.png" alt="VIP Devotee" class="devotee-sprite" />
           <div class="vip-rank-pill">
             <span class="vip-rank-num">${slot.rank}</span>
@@ -227,6 +227,8 @@
       return `
         <div
           class="hall-seat"
+          data-devotee-id="${escapeHtml(String(viewer.uniqueId || ''))}"
+          data-devotee-name="${escapeHtml(String(viewer.name || ''))}"
           data-seat-idx="${idx}"
           style="left: ${seat.x}px; top: ${seat.y}px; z-index: ${20 + seat.row * 2}; transform: translate(-50%, -100%) scale(${seat.scale});"
         >
@@ -272,6 +274,30 @@
       setTimeout(() => { img.src = SPRITE_FRAMES.bowMid; }, delay + 620);
       setTimeout(() => { img.src = SPRITE_FRAMES.kneel; }, delay + 780);
     });
+  }
+
+  function animateExactlyThisDevotee(ev) {
+    // Do not make the first or an unrelated worshipper bow.
+    const identity=String(ev.uniqueId||'').replace(/^tt:/,'');
+    const name=String(ev.user||'').trim().normalize('NFC');
+    const seats=document.querySelectorAll('.vip-devotee-slot, .hall-seat');
+    const slot=Array.from(seats).find(node=>
+      (identity && node.dataset.devoteeId===identity)
+      || (name && node.dataset.devoteeName?.normalize('NFC')===name));
+    const img=slot?.querySelector('.devotee-sprite');
+    if(!img)return;
+    const token=String(Date.now())+Math.random().toString(36).slice(2);
+    img.dataset.ritualToken=token;
+    const steps=[
+      [0,'forehead'],[230,'bowMid'],[510,'prostrate'],
+      [730,'prostrateDeep'],[1180,'prostrate'],
+      [1450,'bowMid'],[1690,'kneel']
+    ];
+    for(const [ms,pose] of steps){
+      setTimeout(()=>{
+        if(img.isConnected&&img.dataset.ritualToken===token)img.src=SPRITE_FRAMES[pose];
+      },ms);
+    }
   }
 
   let prostrationTimers = [];
@@ -365,6 +391,8 @@
       }
     }
 
+    const performing=document.getElementById('centralWorshipper');
+    if(performing && user)performing.style.display='';
     if (doThreeBows) {
       clearProstrationTimers();
       const centralEl = document.getElementById('centralWorshipper');
@@ -607,14 +635,10 @@
 
     switch (ev.type) {
       case 'bowToBuddha': {
-        const person = congregationHall?.querySelector('.hall-seat');
-        const img = person?.querySelector('.devotee-sprite');
-        if (img) {
-          img.src = SPRITE_FRAMES.bowMid;
-          setTimeout(() => { if (img.isConnected) img.src = SPRITE_FRAMES.prostrateDeep; }, 350);
-          setTimeout(() => { if (img.isConnected) img.src = SPRITE_FRAMES.kneel; }, 1500);
-        }
-        updateCentralWorshipper(ev.user, ev.avatar, '🙏 Lễ Phật', ev.wish, true);
+        animateExactlyThisDevotee(ev);
+        // Use the same eight-frame walk/kneel/three-prostration ceremony as
+        // Trụ trì controls. The acting name is the authenticated visitor's.
+        animateWalkerOnCarpet(ev.user, ev.avatar, '🙏 Lễ Phật · Đảnh lễ Tam Bái', ev.wish);
         break;
       }
       case 'setStageName': {
