@@ -723,15 +723,17 @@
 
       case 'strikeWoodenFish': {
         audio.playWoodenFish();
-        if (!animateExactlyThisDevotee(ev) && !ev.uniqueId) pulseHallBowing();
+        const seatedWoodenFish = animateExactlyThisDevotee(ev);
+        if (!seatedWoodenFish && !ev.uniqueId) {
+          animateWalkerOnCarpet(ev.user, ev.avatar, '🪵 Gõ mõ · Chắp tay lễ Phật', ev.wish);
+        }
         particles.spawnFloatingMerit(`+${ev.merit} Công Đức`, 890, 935, '#ffd54f');
         break;
       }
 
       case 'ringBell': {
-        const foundDevotee = animateExactlyThisDevotee(ev);
+        animateExactlyThisDevotee(ev);
         audio.playTempleBell(1.0);
-        if (!foundDevotee && !ev.uniqueId) pulseHallBowing();
         particles.spawnBellWave(540, 510, 4);
         particles.spawnFloatingMerit(`+${ev.merit} Công Đức`, 190, 935, '#fff3b0');
         updateCentralWorshipper(ev.user, ev.avatar, `🔔 Thỉnh Đại Hồng Chung (+${ev.merit} CĐ)`, ev.wish);
@@ -762,7 +764,7 @@
         audio.playTempleBell(1.2);
         setTimeout(() => audio.playTempleBell(1.1), 900);
         particles.spawnGrandCeremonyRain();
-        pulseHallBowing();
+        animateExactlyThisDevotee(ev);
         showGrandCeremonyBanner(ev.user, ev.giftName, ev.merit);
         animateWalkerOnCarpet(ev.user, ev.avatar, `🐉 ${ev.giftName} (+${ev.merit} CĐ)`, ev.wish);
         break;
