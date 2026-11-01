@@ -1363,3 +1363,51 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
    a genuine participant has joined AND an actual ritual has occurred. */
 .central-worshipper { visibility: hidden; }
 .central-worshipper.real-participant-active { visibility: visible; }
+
+
+/* Prominent messaging bar: directly available after choosing a visitor name. */
+.quick-chat-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: min(620px, calc(100vw - 20px));
+  padding: 9px 12px;
+  border: 1.5px solid #f6c55e;
+  border-radius: 15px;
+  background: rgba(25,8,6,.96);
+  box-shadow: 0 4px 23px rgba(0,0,0,.65);
+  color: #fff3d1;
+}
+.quick-chat-bar[hidden], body.obs-mode .quick-chat-bar { display: none!important; }
+.quick-chat-label { display:flex;gap:8px;justify-content:space-between;align-items:center;font-size:11px;line-height:1.3; }
+.quick-chat-label span {font-weight:800;color:#ffe493;letter-spacing:.4px;}
+.quick-chat-label strong {font-weight:600;color:#f7e4bf;white-space:nowrap;max-width:55%;overflow:hidden;text-overflow:ellipsis;}
+.quick-chat-compose {display:flex;gap:6px;align-items:stretch;min-height:42px;}
+.quick-chat-compose input {
+  flex:1; min-width:0; width:100%;border:1px solid #a67c3c;border-radius:9px;
+  color:#fff; background:#0e0403; padding:9px 12px; font-size:16px; user-select:text;
+}
+.quick-chat-compose input:focus {outline:2px solid #ffe5a0;outline-offset:1px;}
+.quick-chat-compose button {
+  flex:none; padding:8px 12px; border-radius:9px; font-size:12px; font-weight:800;
+  border:1px solid #f4c150; color:#251003; background:linear-gradient(#fbe39c,#d8a13b);
+  cursor:pointer;
+}
+.quick-chat-compose #quickChatOpen {color:#f7dda1;background:#4d2012;}
+.quick-chat-compose button:disabled {opacity:.5;cursor:wait;}
+.quick-chat-status { min-height:0;color:#b4ecc9;font-size:11px;line-height:1.3; }
+body:not(.obs-mode) .quick-dock { padding-bottom: 84px; }
+@media (max-width: 480px) {
+  .quick-chat-bar {
+    width:calc(100vw - 12px);padding:8px;
+    bottom:max(4px, env(safe-area-inset-bottom)); border-radius:12px;
+  }
+  .quick-chat-compose #quickChatOpen {padding:8px 6px; font-size:11px;}
+  .quick-chat-compose button {padding:8px 10px;}
+  .quick-chat-compose input {font-size:16px;padding:9px;}
+}
