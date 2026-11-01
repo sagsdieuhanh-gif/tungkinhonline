@@ -12,7 +12,12 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
 (async()=>{try{
  let ready=false;for(let i=0;i<50;i++){try{const r=await get('/api/state');if(r.ok){ready=true;break}}catch{}await sleep(250)}
  assert.equal(ready,true,'Server must boot: '+logs.slice(-1500));
- let root=await get('/');assert.equal(root.status,200);assert.match(await root.text(),/Xin vào chánh điện/);
+ let root=await get('/');assert.equal(root.status,200);
+ const rootMarkup=await root.text();
+ assert.match(rootMarkup,/Xin vào chánh điện/);
+ assert.match(rootMarkup,/SAGS CXR Tam Bảo/);
+ assert.match(rootMarkup,/TRỤ TRÌ · ĐĂNG NHẬP/);
+ assert.match(rootMarkup,/href="\/trutri"/);
  assert.equal((await get('/index.html')).status,302);
  assert.equal((await get('/chandien')).status,302);
  assert.equal((await get('/trutri')).status,302);
@@ -29,7 +34,15 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.equal((await get('/api/trutri/loc')).status,401);
  let admin=await post('/auth/login',{password:pw});assert.equal(admin.status,200);
  const adminCookie=admin.headers.get('set-cookie').split(';')[0];
- assert.equal((await get('/trutri',{headers:{Cookie:adminCookie}})).status,200);
+ const abbot=await get('/trutri',{headers:{Cookie:adminCookie}});
+ assert.equal(abbot.status,200);
+ const abbotMarkup=await abbot.text();
+ assert.match(abbotMarkup,/SAGS CXR Tam Bảo/);
+ assert.match(abbotMarkup,/id="abbotTemplePreview"/);
+ assert.match(abbotMarkup,/src="\/obs"/);
+ assert.match(abbotMarkup,/Yêu cầu chờ duyệt/);
+ assert.match(abbotMarkup,/PHÁT LỘC MAY MẮN/);
+ assert.match(abbotMarkup,/Quản lý chat/);
  let queue=await get('/api/trutri/room',{headers:{Cookie:adminCookie}});const q=await queue.json();assert.equal(q.pending.length,1);
  const id=q.pending[0].id;
  const decision=await post('/api/trutri/decide',{id,allow:true,group:'internal'},adminCookie);assert.equal(decision.status,200);
