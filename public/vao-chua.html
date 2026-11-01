@@ -281,10 +281,14 @@ function updateMeditationView(){
 function syncMeditation(m) {
  if(!m)return;
  const wasActive=meditationActive;
+ const elapsed=Number(m.elapsedSeconds)||0;
  meditationActive=Boolean(m.active);
- meditationElapsed=Number(m.elapsedSeconds)||0;
+ // /api/temple/loc/status refreshes every 4s while pulses run every 15s:
+ // keep local interpolated seconds between unchanged server readings.
+ if(meditationActive!==wasActive || elapsed!==meditationElapsed)
+   meditationUpdatedAt=Date.now();
+ meditationElapsed=elapsed;
  meditationEarned=Number(m.earned)||0;
- meditationUpdatedAt=Date.now();
  if(wasActive&&!meditationActive)setMeditationMessage('Phiên thiền đã dừng. Bấm BẮT ĐẦU để thiền tiếp.');
  updateMeditationView();
 }
