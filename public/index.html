@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Chùa Linh Ứng Online — TikTok Live RPC (Đức Phật A Di Đà 9:16)</title>
+  <title>Chánh Điện Chùa Linh Ứng Online — Phòng Chat Chung</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Noto+Serif:wght@700;900&display=swap" rel="stylesheet">
@@ -21,8 +21,14 @@
       <div class="visitor-entry-error" id="visitorEntryError" role="status" aria-live="polite"></div>
       <button type="submit" id="visitorEntrySubmit">🙏 VÀO CHÙA & PHÒNG CHAT CHUNG</button>
       <div class="visitor-entry-note">Không cần đăng nhập hoặc mật khẩu. Tên được lưu trên thiết bị này và có thể đổi lại bất cứ lúc nào.</div>
+      <a class="entry-admin-link" href="/login?next=%2F%3Fadmin%3D1">🔐 Đăng nhập quản trị</a>
     </form>
   </div>
+  <!-- Trang công khai chỉ hiện chánh điện và chat. Quản trị mở bằng đăng nhập riêng. -->
+  <nav class="public-top-nav" id="publicTopNav" aria-label="Truy cập quản trị">
+    <a id="adminLoginLink" href="/login?next=%2F%3Fadmin%3D1">🔐 Đăng nhập quản trị</a>
+    <button type="button" id="adminLogoutBtn" hidden>Đăng xuất</button>
+  </nav>
   <div class="app-workspace">
     <!-- ====================================================================
          KHUNG 9:16 CHUẨN TIKTOK LIVE / OBS BROWSER SOURCE (1080 x 1920)
@@ -212,7 +218,7 @@
     <aside class="quick-dock" id="quickDock">
       <div class="dock-header">
         <div class="dock-title">🎛️ Điều Khiển Live & RPC</div>
-        <a href="/login" target="_blank" class="dock-link">Đăng nhập / Mở Admin ↗</a>
+        <a href="/admin" class="dock-link">Mở Admin nâng cao ↗</a>
       </div>
 
       <div class="dock-section">
@@ -294,7 +300,14 @@
         </button>
       </div>
 
-      <section class="dock-section shared-chat-panel" id="sharedChatPanel">
+
+      <div class="dock-section">
+        <div class="dock-section-title">📜 Nhật Ký Tương Tác Gần Nhất</div>
+        <div class="event-feed" id="eventFeed"></div>
+      </div>
+    </aside>
+    <!-- Phòng chat chỉ dành cho giao diện người xem, ngoài bảng điều khiển admin. -->
+    <section class="dock-section shared-chat-panel" id="sharedChatPanel">
         <div class="shared-chat-heading">
           <span class="dock-section-title">💬 PHÒNG CHAT CHUNG • CÔNG KHAI</span>
           <span class="shared-chat-online">● TRỰC TIẾP</span>
@@ -317,13 +330,8 @@
           <div class="shared-chat-status" id="sharedChatStatus" role="status" aria-live="polite">Giới hạn 180 ký tự/tin, mỗi 4 giây một tin. Không gửi đường link.</div>
         </form>
         <button type="button" class="dock-btn" id="clearSharedChat" hidden>XÓA NỘI DUNG CHAT (ADMIN)</button>
-      </section>
+    </section>
 
-      <div class="dock-section">
-        <div class="dock-section-title">📜 Nhật Ký Tương Tác Gần Nhất</div>
-        <div class="event-feed" id="eventFeed"></div>
-      </div>
-    </aside>
   </div>
 
   <!-- Ô nhập chat nổi: nhìn thấy ngay khi đã chọn tên, kể cả trên điện thoại. -->
