@@ -1308,7 +1308,7 @@ app.post('/auth/logout', (_req, res) => {
   res.json({ ok: true });
 });
 app.get('/trutri', (req,res)=>{
-  if(!authorized(req))return res.redirect(302,'/login');
+  if(!authorized(req))return res.redirect(302,'/login?next=%2Ftrutri');
   res.sendFile(path.join(__dirname,'public','trutri.html'));
 });
 app.get(['/admin', '/admin.html'], (req, res) => {
