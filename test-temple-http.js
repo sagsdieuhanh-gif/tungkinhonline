@@ -9,7 +9,7 @@ let logs='';child.stdout.on('data',d=>logs+=d);child.stderr.on('data',d=>logs+=d
 async function get(url,opts={}){return fetch(base+url,{redirect:'manual',...opts})}
 async function post(url,body,cookie,origin=base){return get(url,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(body)})}
 function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
-try{
+(async()=>{try{
  let ready=false;for(let i=0;i<50;i++){try{const r=await get('/api/state');if(r.ok){ready=true;break}}catch{}await sleep(250)}
  assert.equal(ready,true,'Server must boot: '+logs.slice(-1500));
  let root=await get('/');assert.equal(root.status,200);assert.match(await root.text(),/Xin vào chánh điện/);
@@ -43,4 +43,4 @@ try{
  let leave=await post('/api/temple/leave',{},cookie);assert.equal(leave.status,200);
  assert.equal((await get('/chandien',{headers:{Cookie:cookie}})).status,302);
  console.log('PASS: Linh Ung HTTP login, comment pending, real Trụ trì approval, hall gate, chat+mute+delete, protected routes');
-}finally{child.kill('SIGTERM');await sleep(200);if(child.exitCode&&child.exitCode!==null)console.log('Server exited',child.exitCode)}
+}finally{child.kill('SIGTERM');await sleep(200);if(child.exitCode&&child.exitCode!==null)console.log('Server exited',child.exitCode)}})().catch(e=>{console.error(e);process.exitCode=1})
