@@ -1,5 +1,5 @@
 'use strict';
-// Comment-only temple admission and shared chat. The server, not the browser, owns attendance.
+// Open-door sanctuary and shared chat. Only real participant arrivals populate seats.
 const crypto=require('crypto');
 function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100,approvedNames=[],onRegistryChange=()=>{}}={}){
  const pending=new Map(),inside=new Map(),sessions=new Map(),messages=[],muted=new Set(),lastMessage=new Map();
@@ -65,32 +65,31 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100,approve
  function tiktokKey(uniqueId){const v=String(uniqueId||'').trim().slice(0,96);return v?'tt:'+v:null}
  function request({id,displayName,comment,source='web'}){
   if(!id||(!id.startsWith('web:')&&!id.startsWith('tt:')))return {ok:false,reason:'invalid-identity'};
-  const visitorName=name(displayName),key=nameKey(visitorName),body=text(comment);
+  const visitorName=name(displayName),key=nameKey(visitorName);
   const existing=inside.get(id);
-  if(existing){existing.lastSeen=now();return {ok:true,status:'approved'};}
+  if(existing){existing.lastSeen=now();return {ok:true,status:'approved',person:existing}};
   if(visitorName.length<2)return {ok:false,reason:'invalid-name'};
   if([...inside.values()].some(v=>v.id!==id&&nameKey(v.name)===key))return {ok:false,reason:'name-in-use'};
-  const prior=approved.get(key);
-  if(prior){
-    if(inside.size>=capacity)return {ok:false,reason:'full'};
-    const person={id,name:prior.name,source:source==='tiktok'?'tiktok':'web',
-      group:prior.group,joinedAt:now(),lastSeen:now(),avatar:''};
-    inside.set(id,person);pending.delete(id);emit();
-    return {ok:true,status:'approved',returning:true};
+  if(inside.size>=capacity)return {ok:false,reason:'full'};
+  // Open-door sanctuary: no waiting room, no abbot approval, no simulated people.
+  const group=source==='tiktok'?'tiktok':(approved.get(key)?.group||'internal');
+  const person={id,name:visitorName,source:source==='tiktok'?'tiktok':'web',
+    group,joinedAt:now(),lastSeen:now(),avatar:''};
+  inside.set(id,person);pending.delete(id);
+  if(!approved.has(key)){
+    approved.set(key,{name:visitorName,source:person.source,group,
+      approvedAt:new Date(now()).toISOString()});
+    persistRegistry();
   }
-  if(!body)return {ok:false,reason:'empty-comment'};
-  if(pending.size>=300&&!pending.has(id))return {ok:false,reason:'queue-full'};
-  const p={id,name:visitorName,comment:body,source:source==='tiktok'?'tiktok':'web',at:now()};
-  const isNew=!pending.has(id);pending.set(id,p);
-  if(isNew)emit();
-  return {ok:true,status:'pending',isNew};
+  emit();
+  return {ok:true,status:'approved',person,returning:Boolean(approved.get(key))};
  }
  function tiktokComment(uniqueId,displayName,comment){
   const id=tiktokKey(uniqueId);if(!id)return {approved:false,status:'no-id'};
   const participant=inside.get(id);
   if(participant){participant.lastSeen=now();return {approved:true,id,person:participant}};
-  request({id,displayName,comment,source:'tiktok'});
-  return {approved:false,id,status:'pending'};
+  const result=request({id,displayName,comment,source:'tiktok'});
+  return result.ok?{approved:true,id,person:inside.get(id),status:'approved'}:{approved:false,id,status:result.reason};
  }
  function approve(id,group='tiktok'){
   id=String(id||'');const p=pending.get(id);
