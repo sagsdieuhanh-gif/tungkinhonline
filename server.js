@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 const { createTempleRoom } = require('./temple-room');
+const { createLuckyPool } = require('./temple-loc');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
@@ -311,6 +312,7 @@ const room=createTempleRoom({notify:(method,params)=>{
   })));
 }});
 
+const locPool=createLuckyPool();
 
 let saveTimer = null;
 function saveState() {
@@ -1463,6 +1465,80 @@ app.post('/api/chat',guestOrigin,(req,res)=>{
  res.status(201).json({ok:true,message:result.message});
 });
 app.delete('/api/chat',requireAdmin,(_req,res)=>{room.clearChat();res.json({ok:true})});
+
+// Lucky envelopes are distinct from real money and TikTok gifts.
+// The participant's HttpOnly cookie is validated against the approved room.
+function locPerson(req,res){
+ const ses=room.identity(req,res);
+ return room.inside.get(ses.id)||null;
+}
+function locNotify(){
+ broadcastNotification('temple.loc',{envelope:locPool.view()});
+}
+function locRitual(person,action,wish){
+ const info={user:person.name,uniqueId:person.id,avatar:person.avatar||'',
+   wish:sanitizeWishText(wish)||'Cầu gia đình bình an, sức khỏe và may mắn',
+   count:1,readTts:true};
+ if(action==='bow'){
+   const event=pushEventLog({type:'bowToBuddha',user:person.name,
+     uniqueId:person.id,avatar:person.avatar||'',wish:info.wish,merit:0,ttsText:''});
+   broadcastNotification('temple.event',{event,state:getPublicState()});
+   return {event};
+ }
+ if(action==='woodenFish')return Rituals.strikeWoodenFish(info);
+ if(action==='incense')return Rituals.burnIncense(info);
+ if(action==='bell')return Rituals.ringBell(info);
+ if(action==='lantern')return Rituals.sendPrayer(info);
+ if(action==='fortune')return Rituals.drawFortune({...info,topic:info.wish});
+ if(action==='lotus'){
+   // Genuine virtual flower. Never manufacture or report TikTok coins.
+   const dev=recordDevotee(person.name,person.id,person.avatar||'',20,0,1,info.wish);
+   state.offerings.lotus=(state.offerings.lotus||0)+1;
+   const event=pushEventLog({type:'offerGift',user:dev.name,uniqueId:person.id,
+     avatar:dev.avatar,giftType:'lotus',giftName:'Hoa Sen Bình An',
+     coins:0,virtualCost:20,merit:20,wish:info.wish,
+     ttsText:'Nam mô A Di Đà Phật. Thí chủ '+dev.name+' thành tâm dâng hoa sen cầu bình an.'});
+   saveState();
+   broadcastNotification('temple.event',{event,state:getPublicState()});
+   return {event};
+ }
+ throw Error('Nghi thức không hợp lệ');
+}
+app.get('/api/temple/loc/status',(req,res)=>{
+ const person=locPerson(req,res);
+ res.setHeader('Cache-Control','no-store');
+ if(!person)return res.status(403).json({ok:false,error:'Chỉ người đã được Trụ trì duyệt mới nhận lộc'});
+ res.json(locPool.status(person.id));
+});
+app.post('/api/temple/loc/claim',guestOrigin,(req,res)=>{
+ const person=locPerson(req,res);
+ if(!person)return res.status(403).json({ok:false,error:'Chờ Trụ trì duyệt trước khi mở lộc'});
+ const r=locPool.claim(person.id);
+ if(r.ok)locNotify();
+ res.status(r.ok?200:409).json(r);
+});
+app.post('/api/temple/loc/ritual',guestOrigin,(req,res)=>{
+ const person=locPerson(req,res);
+ if(!person)return res.status(403).json({ok:false,error:'Chờ Trụ trì duyệt trước khi hành lễ'});
+ const action=String(req.body?.action||'');
+ const r=locPool.spend(person.id,action,()=>locRitual(person,action,req.body?.wish));
+ res.status(r.ok?200:409).json(r);
+});
+app.get('/api/trutri/loc',requireAdmin,(_req,res)=>{
+ res.setHeader('Cache-Control','no-store');
+ res.json({ok:true,envelope:locPool.view(),prices:locPool.prices});
+});
+app.post('/api/trutri/loc/open',requireAdmin,guestOrigin,(req,res)=>{
+ const r=locPool.open(req.body?.total);
+ if(r.ok)locNotify();
+ res.status(r.ok?200:409).json(r);
+});
+app.post('/api/trutri/loc/close',requireAdmin,guestOrigin,(_req,res)=>{
+ const r=locPool.close();
+ if(r.ok)locNotify();
+ res.status(r.ok?200:409).json(r);
+});
+
 app.get('/api/trutri/room',requireAdmin,(_req,res)=>{res.setHeader('Cache-Control','no-store');res.json(room.moderation())});
 app.post('/api/trutri/decide',requireAdmin,guestOrigin,(req,res)=>{
  const id=String(req.body?.id||''),r=req.body?.allow?room.approve(id,req.body?.group):{ok:room.deny(id)};
