@@ -468,7 +468,7 @@
     document.getElementById('statMerit').textContent = Number(st.totalMerit || 0).toLocaleString('vi-VN');
     document.getElementById('statWoodenFish').textContent = Number(st.woodenFishHits || 0).toLocaleString('vi-VN');
 
-    renderIncenseSticks(st.activeIncenseSticks || 9);
+    renderIncenseSticks(Number(st.activeIncenseSticks) || 0);
 
     const lb = Array.isArray(st.leaderboard) ? st.leaderboard : [];
     const central=document.getElementById('centralWorshipper');
