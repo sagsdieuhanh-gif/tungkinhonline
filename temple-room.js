@@ -82,6 +82,10 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100,approve
     persistRegistry();
   }
   emit();
+  // A real newly joined person gets one welcome announcement. Revisiting or
+  // polling an already occupied session never triggers a duplicate greeting.
+  const welcomeText='Chúc '+person.name+' '+blessingTemplates[blessingSequence++%blessingTemplates.length];
+  notify('temple.joined',{name:person.name,source:person.source,wish:welcomeText});
   return {ok:true,status:'approved',person,returning:Boolean(approved.get(key))};
  }
  function tiktokComment(uniqueId,displayName,comment){
