@@ -3,6 +3,29 @@
 const crypto=require('crypto');
 function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
  const pending=new Map(),inside=new Map(),sessions=new Map(),messages=[],muted=new Set(),lastMessage=new Map();
+ const blessingTemplates=[
+  'luôn mạnh khỏe, bình an và gặp nhiều điều tốt đẹp trong cuộc sống.',
+  'gia đình hòa thuận, an vui, mọi việc thuận buồm xuôi gió.',
+  'một ngày mới tràn đầy năng lượng tích cực và niềm vui.',
+  'gặp nhiều may mắn, công việc hanh thông và tâm luôn an yên.',
+  'thân tâm an lạc, mỗi ngày đều có niềm vui nhỏ đáng quý.',
+  'người thân luôn khỏe mạnh, bình yên và đầy ắp yêu thương.',
+  'mọi dự định tốt đẹp được tiến triển thuận lợi.',
+  'luôn giữ được nụ cười, sự lạc quan và lòng thiện lành.',
+  'một năm nhiều thuận lợi, gia đạo ấm êm và sung túc.',
+  'đi đâu cũng bình an, về nhà luôn có người thương chờ đợi.',
+  'vượt qua khó khăn với lòng vững vàng và nhiều hy vọng.',
+  'có nhiều cơ hội tốt trong công việc, học tập và cuộc sống.',
+  'sức khỏe dồi dào, tinh thần thư thái, lòng luôn thanh thản.',
+  'mọi thành viên trong gia đình luôn gắn bó, vui vẻ và hạnh phúc.',
+  'mỗi ngày đều đón nhận những điều tử tế và nhân duyên tốt.',
+  'luôn vững tâm, sống thiện lành và gặp những người chân thành.',
+  'hạnh phúc từ những điều giản dị, cuộc sống thêm ấm áp.',
+  'đủ sức khỏe để làm điều mình yêu thích và giúp đỡ mọi người.',
+  'luôn được bình an trên mọi hành trình, công việc nhiều thuận lợi.',
+  'đón nhiều niềm vui, gặp chuyện khó vẫn sáng suốt và vững lòng.'
+ ];
+ let blessingSequence=0;
  let counter=0,version=0;
  const clean=s=>String(s??'').replace(/[\u0000-\u001f\u007f<>]/g,' ').replace(/\s+/g,' ').trim();
  const text=s=>clean(s).slice(0,180);
@@ -54,15 +77,40 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
  function publicRoom(){return {count:inside.size,capacity,pendingCount:pending.size,people:list().map(p=>({name:p.name,group:p.group,source:p.source})),version}}
  function moderation(){return {...publicRoom(),pending:[...pending.values()],inside:list().map(p=>({...p,muted:muted.has(p.id)})),messages:messages.map(m=>({...m})),muted:[...muted]}}
  function status(session){const p=inside.get(session.id);return {name:session.name,status:p?'approved':pending.has(session.id)?'pending':session.lastComment?'not-approved':'new',group:p?.group||null,...publicRoom()}}
+ function appendChat({senderId,name:senderName,body,source,role=null,automated=false}){
+  const entry={id:'m'+(++counter),senderId,name:senderName,text:body,source,
+    at:new Date(now()).toISOString(),...(role?{role}:{}),...(automated?{automated:true}:{})};
+  messages.push(entry);
+  if(messages.length>80)messages.shift();
+  version++;
+  notify('temple.chat',{...entry,senderId:undefined});
+  return entry;
+ }
  function submit(id,displayName,raw,source='web'){
   const participant=inside.get(id);if(!participant)return {ok:false,reason:'not-approved'};
   if(muted.has(id))return {ok:false,reason:'muted'};
   const body=text(raw);if(!body)return {ok:false,reason:'empty-comment'};
   const then=lastMessage.get(id)||0;if(now()-then<(source==='tiktok'?1700:3500))return {ok:false,reason:'cooldown'};
   lastMessage.set(id,now());participant.lastSeen=now();
-  const entry={id:'m'+(++counter),senderId:id,name:name(displayName)||participant.name,text:body,source:source==='tiktok'?'tiktok':'web',at:new Date(now()).toISOString()};
-  messages.push(entry);if(messages.length>80)messages.shift();version++;
-  notify('temple.chat',{...entry,senderId:undefined});return {ok:true,message:entry};
+  // Use the already-approved identity, not a caller-supplied nickname.
+  const entry=appendChat({senderId:id,name:participant.name,body,source:source==='tiktok'?'tiktok':'web'});
+  // Each accepted, non-abbot message receives a varied, visibly automatic blessing.
+  // Appending directly (not via submit) prevents reply loops.
+  const phrase=blessingTemplates[blessingSequence++%blessingTemplates.length];
+  appendChat({senderId:'abbot:auto',name:'Trụ trì',body:'Chúc '+participant.name+' '+phrase,
+    source:'abbot',role:'abbot',automated:true});
+  return {ok:true,message:entry};
+ }
+ function submitAbbot(raw){
+  const body=text(raw);
+  if(!body)return {ok:false,reason:'empty-comment'};
+  const stamp=now(),recent=lastMessage.get('abbot:manual')||0;
+  if(stamp-recent<900)return {ok:false,reason:'cooldown'};
+  lastMessage.set('abbot:manual',stamp);
+  const entry=appendChat({senderId:'abbot:manual',name:'Trụ trì',body,
+    source:'abbot',role:'abbot',automated:false});
+  // Manual admin messages never trigger an automatic blessing.
+  return {ok:true,message:entry};
  }
  function chat(id,asAdmin=false){
   if(!asAdmin&&!inside.has(id))return null;
@@ -79,6 +127,6 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
   if(changed)emit();
  }
  const timer=setInterval(sweep,15000);timer.unref?.();
- return {identity,request,tiktokComment,approve,deny,remove,list,publicRoom,moderation,status,submit,chat,deleteMessage,setMute,clearChat,sweep,isApproved:id=>inside.has(id),tiktokKey,pending,inside};
+ return {identity,request,tiktokComment,approve,deny,remove,list,publicRoom,moderation,status,submit,submitAbbot,chat,deleteMessage,setMute,clearChat,sweep,isApproved:id=>inside.has(id),tiktokKey,pending,inside};
 }
 module.exports={createTempleRoom};
