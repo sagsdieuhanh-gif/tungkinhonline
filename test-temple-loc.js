@@ -28,4 +28,35 @@ assert.equal(pool.open(15).ok,true);
 assert.equal(pool.claim('abc').ok,true);
 assert.equal(pool.status('abc').claimed,true);
 assert.ok(PRICES.lotus===20&&PRICES.bow===0);
-console.log('PASS lucky pool: random bounded award, no duplicate, fund cap, spending, close/new round');
+// Simulated clock verifies 10 internal coins only after a full active minute.
+let minuteClock=10000;
+const med=createLuckyPool({now:()=>minuteClock});
+assert.equal(med.meditationStart('meditator').active,true);
+assert.equal(med.meditationStart('meditator').active,true,'Double start must not reset timer');
+for(let i=0;i<3;i++){
+ minuteClock+=15000;
+ const p=med.meditationPulse('meditator');
+ assert.equal(p.justEarned,0);
+ assert.equal(p.balance,0);
+}
+minuteClock+=15000;
+let pulse=med.meditationPulse('meditator');
+assert.equal(pulse.justEarned,10,'1 minute awards exactly 10 coins');
+assert.equal(pulse.balance,10);
+assert.equal(pulse.earned,10);
+pulse=med.meditationPulse('meditator');
+assert.equal(pulse.justEarned,0,'Extra requests cannot double pay');
+assert.equal(med.spend('meditator','incense',()=>({ok:true})).balance,5);
+minuteClock+=40000;
+assert.equal(med.meditationPulse('meditator').ok,false,'Time gap >35s must stop the meditation');
+assert.equal(med.balance('meditator'),5,'No earning for hidden/inactive time');
+minuteClock+=35000;
+assert.equal(med.meditationStart('meditator').active,true);
+for(let i=0;i<4;i++){minuteClock+=15000;pulse=med.meditationPulse('meditator')}
+assert.equal(pulse.justEarned,10);
+assert.equal(med.balance('meditator'),15);
+assert.equal(med.meditationStop('meditator').active,false);
+minuteClock+=60000;
+assert.equal(med.meditationPulse('meditator').ok,false);
+assert.equal(med.balance('meditator'),15);
+console.log('PASS virtual lucky pool + meditation: +10 coins/full active minute, stop inactive, no duplicate credit');
