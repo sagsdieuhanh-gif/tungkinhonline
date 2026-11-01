@@ -1,9 +1,9 @@
 /**
  * TempleAudioEngine
- * - Nhạc nền: Phát trực tiếp file "Nam Mô A Di Đà Phật.m4a" (/assets/bg_chant.m4a) lặp vô tận êm dịu,
- *   tự động hạ nhỏ âm lượng (ducking) khi có giọng đọc lời khấn để không bị đè tiếng hay rè/xước.
- * - Pháp khí: Tổng hợp tiếng Mõ gỗ, Đại Hồng Chung, Ống xăm nhẹ nhàng, không vượt ngưỡng 0dBFS.
- * - Giọng đọc: Hàng đợi ZeroTTS phát tuần tự mượt mà.
+ * - Nhạc nền: hai bản gốc từ DiChuaOnline (music1.mp3, music2.mp3), tự chuyển bài.
+ *   Âm lượng tự hạ khi có giọng đọc; không dùng nhạc synth/nhạc cũ.
+ * - Pháp khí: giữ tổng hợp tiếng mõ, đại hồng chung, ống xăm và chuông dâng lễ.
+ * - Giọng đọc: giữ cơ chế phát Neural TTS tiếng Việt.
  */
 class TempleAudioEngine {
   constructor() {
@@ -22,20 +22,35 @@ class TempleAudioEngine {
     try { this.browserVoiceURI = localStorage.getItem('temple_browser_voice') || ''; }
     catch (_) { this.browserVoiceURI = ''; }
 
-    // Nhạc nền "Nam Mô A Di Đà Phật.m4a" — mặc định 65%, cho phép chỉnh trực tiếp 0% - 100%
+    // Hai bản nhạc gốc được sao chép chính xác từ DiChuaOnline.
     const savedMusicVol = parseFloat(localStorage.getItem('temple_music_vol'));
     const savedTtsVol = parseFloat(localStorage.getItem('temple_tts_vol'));
-    this.bgBaseVolume = Number.isFinite(savedMusicVol) ? Math.max(0, Math.min(1, savedMusicVol)) : 0.65;
+    this.bgBaseVolume = Number.isFinite(savedMusicVol) ? Math.max(0, Math.min(1, savedMusicVol)) : 0.48;
     this.ttsVolume = Number.isFinite(savedTtsVol) ? Math.max(0, Math.min(1, savedTtsVol)) : 0.95;
-
-    this.useSynthMusicFallback = false;
-    this.synthBgTimer = null;
-    this.bgAudio = new Audio('/assets/bg_chant.m4a');
-    this.bgAudio.loop = true;
-    this.bgAudio.preload = 'auto';
+    this.bgTracks = [
+      { src: '/assets/music/music1.mp3', title: 'Trăng trên rừng trúc' },
+      { src: '/assets/music/music2.mp3', title: 'Hơi thở ban mai' }
+    ];
+    this.bgTrackIndex = 0;
+    this.bgTrackFailures = 0;
+    this.bgMusicError = '';
+    this.bgAudio = new Audio(this.bgTracks[0].src);
+    this.bgAudio.loop = false; // Bản 1 kết thúc → bản 2 → bản 1...
+    this.bgAudio.preload = 'metadata';
     this.bgAudio.volume = this.bgBaseVolume;
+    this.bgAudio.onended = () => {
+      this.bgTrackFailures = 0;
+      this.nextBackgroundTrack();
+    };
     this.bgAudio.onerror = () => {
-      this.useSynthMusicFallback = true;
+      if (!this.bgMusicEnabled) return;
+      this.bgTrackFailures += 1;
+      if (this.bgTrackFailures < this.bgTracks.length) {
+        this.nextBackgroundTrack();
+      } else {
+        this.bgMusicError = 'Không tải được nhạc DiChuaOnline; hãy kiểm tra kết nối và tải lại trang.';
+        console.warn('[Temple Music]', this.bgMusicError);
+      }
     };
     this.ttsQueue = [];
     this.ttsPlaying = false;
@@ -60,114 +75,69 @@ class TempleAudioEngine {
   }
 
   // --------------------------------------------------------------------------
-  // 1. NHẠC NỀN "NAM MÔ A DI ĐÀ PHẬT.M4A" (CÓ AUTO-DUCKING KHI ĐỌC LỜI KHẤN)
+  // 1. NHẠC THIỀN DI CHUA ONLINE: HAI FILE MP3, PHÁT TUẦN TỰ
   // --------------------------------------------------------------------------
+  getCurrentMusicTitle() {
+    return this.bgTracks[this.bgTrackIndex]?.title || 'Nhạc thiền';
+  }
+
   getDuckedVolume() {
-    return Math.max(0.08, +(this.bgBaseVolume * 0.35).toFixed(2));
+    return Math.max(0, Math.min(1, +(this.bgBaseVolume * 0.35).toFixed(2)));
   }
 
   setMusicVolume(vol) {
-    const v = Math.max(0, Math.min(1, Number(vol)));
+    const v = Number(vol);
     if (!Number.isFinite(v)) return;
-    this.bgBaseVolume = v;
-    try {
-      localStorage.setItem('temple_music_vol', String(v));
-    } catch (_) {}
-    if (this.bgAudio && !this.useSynthMusicFallback) {
+    this.bgBaseVolume = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem('temple_music_vol', String(this.bgBaseVolume)); } catch (_) {}
+    if (this.bgAudio) {
       this.bgAudio.volume = this.ttsPlaying ? this.getDuckedVolume() : this.bgBaseVolume;
     }
   }
 
   setTtsVolume(vol) {
-    const v = Math.max(0, Math.min(1, Number(vol)));
+    const v = Number(vol);
     if (!Number.isFinite(v)) return;
-    this.ttsVolume = v;
-    try {
-      localStorage.setItem('temple_tts_vol', String(v));
-    } catch (_) {}
-    if (this.currentAudio) {
-      this.currentAudio.volume = this.ttsVolume;
-    }
+    this.ttsVolume = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem('temple_tts_vol', String(this.ttsVolume)); } catch (_) {}
+    if (this.currentAudio) this.currentAudio.volume = this.ttsVolume;
   }
 
   startZenAmbience() {
-    if (!this.bgMusicEnabled) return;
-    if (this.useSynthMusicFallback) {
-      this.startDefaultZenSynthLoop();
-      return;
-    }
-    try {
-      this.bgAudio.volume = this.ttsPlaying ? this.getDuckedVolume() : this.bgBaseVolume;
-      if (this.bgAudio.paused) {
-        const p = this.bgAudio.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch(() => {
-            if (this.bgAudio.error) {
-              this.useSynthMusicFallback = true;
-              this.startDefaultZenSynthLoop();
-            }
-          });
-        }
+    if (!this.bgMusicEnabled || !this.unlocked || this.bgTrackFailures >= this.bgTracks.length) return;
+    this.bgAudio.volume = this.ttsPlaying ? this.getDuckedVolume() : this.bgBaseVolume;
+    if (this.bgAudio.paused) {
+      try {
+        const playback = this.bgAudio.play();
+        playback?.catch?.(error => {
+          // Autoplay restrictions require the user to tap the unlock button.
+          if (error?.name !== 'NotAllowedError' && this.bgAudio.error) {
+            console.warn('[Temple Music] Cannot play', this.getCurrentMusicTitle(), error);
+          }
+        });
+      } catch (error) {
+        console.warn('[Temple Music] Playback failed:', error);
       }
-    } catch (_) {
-      this.useSynthMusicFallback = true;
-      this.startDefaultZenSynthLoop();
     }
   }
 
-  startDefaultZenSynthLoop() {
-    if (!this.bgMusicEnabled || this.synthBgTimer) return;
-    const PENTATONIC = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25];
-    let step = 0;
-    const playZenNote = () => {
-      if (!this.bgMusicEnabled || !this.ctx) return;
-      try {
-        const now = this.ctx.currentTime;
-        const freq = PENTATONIC[step % PENTATONIC.length];
-        step++;
-        const vol = (this.ttsPlaying ? this.getDuckedVolume() : this.bgBaseVolume) * 0.18;
-        if (vol <= 0.002) return;
-
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now);
-
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.linearRampToValueAtTime(vol, now + 0.6);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 4.2);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.onended = () => {
-          osc.disconnect();
-          gain.disconnect();
-        };
-        osc.start(now);
-        osc.stop(now + 4.25);
-      } catch (_) {}
-    };
-    playZenNote();
-    this.synthBgTimer = setInterval(playZenNote, 3600);
+  nextBackgroundTrack() {
+    this.bgTrackIndex = (this.bgTrackIndex + 1) % this.bgTracks.length;
+    this.bgMusicError = '';
+    this.bgAudio.pause();
+    this.bgAudio.src = this.bgTracks[this.bgTrackIndex].src;
+    this.bgAudio.load();
+    if (this.bgMusicEnabled) this.startZenAmbience();
+    return this.getCurrentMusicTitle();
   }
 
   stopZenAmbience() {
-    try {
-      this.bgAudio.pause();
-    } catch (_) {}
-    if (this.synthBgTimer) {
-      clearInterval(this.synthBgTimer);
-      this.synthBgTimer = null;
-    }
+    try { this.bgAudio.pause(); } catch (_) {}
   }
 
   setBgDucking(ducked) {
-    if (!this.bgMusicEnabled) return;
-    try {
-      if (!this.useSynthMusicFallback && this.bgAudio) {
-        this.bgAudio.volume = ducked ? this.getDuckedVolume() : this.bgBaseVolume;
-      }
-    } catch (_) {}
+    if (!this.bgAudio) return;
+    this.bgAudio.volume = ducked ? this.getDuckedVolume() : this.bgBaseVolume;
   }
 
   // --------------------------------------------------------------------------
