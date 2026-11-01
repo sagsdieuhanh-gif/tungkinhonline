@@ -392,20 +392,27 @@
         .join('');
     }
 
-    // Trạng thái kết nối TikTok Live
+    // Trạng thái kết nối TikTok Live: luôn hiển thị cả lỗi của connector.
     const liveDot = document.getElementById('liveDot');
     const liveText = document.getElementById('liveStatusText');
     if (st.tiktok?.connected) {
-      liveDot.classList.add('connected');
-      liveText.textContent = `LIVE @${st.tiktok.username} • ${st.tiktok.viewerCount || 0} mắt`;
+      liveDot?.classList.add('connected');
+      if (liveText) liveText.textContent = `LIVE @${st.tiktok.username} • ${st.tiktok.viewerCount || 0} mắt`;
+      setTikTokConnectStatus(`✅ Đã kết nối @${st.tiktok.username}. Đang nhận bình luận, tim và quà tặng.`, 'success');
     } else if (st.tiktok?.connecting) {
-      liveDot.classList.remove('connected');
-      liveText.textContent = `Đang kết nối @${st.tiktok.username}...`;
+      liveDot?.classList.remove('connected');
+      if (liveText) liveText.textContent = `Đang kết nối @${st.tiktok.username}...`;
+      setTikTokConnectStatus(`⏳ Đang kết nối tới @${st.tiktok.username}...`, 'pending');
     } else {
-      liveDot.classList.remove('connected');
-      liveText.textContent = st.settings?.autoSim
+      liveDot?.classList.remove('connected');
+      if (liveText) liveText.textContent = st.settings?.autoSim
         ? 'CHÙA LINH ỨNG • TỰ ĐỘNG GIẢ LẬP ĐÔNG NGƯỜI'
         : 'CHÙA LINH ỨNG • ĐỨC PHẬT A DI ĐÀ';
+      if (st.tiktok?.lastError) {
+        setTikTokConnectStatus(`❌ Kết nối TikTok thất bại: ${st.tiktok.lastError}`, 'error');
+      } else if (st.tiktok?.username) {
+        setTikTokConnectStatus(`⚪ Chưa kết nối @${st.tiktok.username}. Hãy kiểm tra tài khoản đang LIVE.`, 'idle');
+      }
     }
 
     const btnAutoSim = document.getElementById('btnToggleAutoSim');
@@ -643,27 +650,42 @@
   }
   connectWebSocket();
 
+  function setTikTokConnectStatus(message, kind = 'idle') {
+    const el = document.getElementById('tiktokConnectStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.dataset.status = kind;
+    el.style.color = kind === 'error' ? '#ff998c' : kind === 'success' ? '#9bebbe' : '#e6d4ad';
+  }
+
   async function callRpc(method, params = {}) {
     audio.ensureContext();
-    const payload = {
-      jsonrpc: '2.0',
-      id: rpcId++,
-      method,
-      params
-    };
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload));
-      return;
+    // Lệnh điều khiển dùng HTTP để nhận được phản hồi và lỗi xác thực rõ ràng.
+    // WebSocket chỉ nhận broadcast state và event từ server.
+    const payload = { jsonrpc: '2.0', id: rpcId++, method, params };
+    try {
+      const res = await fetch('/rpc', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || data?.error) {
+        const message = res.status === 401
+          ? 'Chưa đăng nhập quản trị. Nhấn "Đăng nhập điều khiển TikTok" bên dưới rồi thử lại.'
+          : (data?.error?.message || `Máy chủ phản hồi HTTP ${res.status}`);
+        setTikTokConnectStatus('❌ ' + message, 'error');
+        return { error: { message, status: res.status } };
+      }
+      if (data?.result?.state) updateUIState(data.result.state);
+      if (data?.result?.event) triggerRitualVisuals(data.result.event);
+      return data;
+    } catch (err) {
+      const message = err?.message || 'Không thể truy cập máy chủ.';
+      setTikTokConnectStatus('❌ Lỗi mạng: ' + message, 'error');
+      return { error: { message } };
     }
-    const res = await fetch('/rpc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data?.result?.state) updateUIState(data.result.state);
-    if (data?.result?.event) triggerRitualVisuals(data.result.event);
-    return data;
   }
 
   function getFormInput() {
@@ -763,10 +785,29 @@
     });
   });
 
-  document.getElementById('btnConnectTikTok')?.addEventListener('click', () => {
+  document.getElementById('btnConnectTikTok')?.addEventListener('click', async (event) => {
     const username = document.getElementById('inputTikTokUser')?.value.trim();
-    if (!username) return;
-    callRpc('live.connect', { username });
+    if (!username) {
+      setTikTokConnectStatus('⚠️ Hãy nhập @username của tài khoản đang phát TikTok LIVE.', 'error');
+      return;
+    }
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Đang kết nối...';
+    setTikTokConnectStatus(`⏳ Đang kiểm tra phòng TikTok LIVE ${username}...`, 'pending');
+    try {
+      const reply = await callRpc('live.connect', { username });
+      if (reply?.error) return;
+      const live = reply?.result;
+      if (live?.connected) {
+        setTikTokConnectStatus(`✅ Đã kết nối @${live.username}. Chờ sự kiện từ người xem LIVE.`, 'success');
+      } else {
+        setTikTokConnectStatus('⚠️ Kết nối chưa được xác nhận. Vui lòng xem trạng thái phía trên.', 'pending');
+      }
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Kết Nối';
+    }
   });
 
   let autoSimState = false;
