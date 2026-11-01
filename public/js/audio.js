@@ -13,6 +13,12 @@ class TempleAudioEngine {
     this.bgMusicEnabled = true;
     this.ttsEnabled = true;
     this.ttsVoice = 'maichi';
+    // Keep server ZeroTTS off on Render Free (512 MB). Use device TTS.
+    this.serverTtsAvailable = false;
+    this.browserSpeechSupported = typeof window.speechSynthesis !== 'undefined' &&
+      typeof window.SpeechSynthesisUtterance === 'function';
+    try { this.browserVoiceURI = localStorage.getItem('temple_browser_voice') || ''; }
+    catch (_) { this.browserVoiceURI = ''; }
 
     // Nhạc nền "Nam Mô A Di Đà Phật.m4a" — mặc định 65%, cho phép chỉnh trực tiếp 0% - 100%
     const savedMusicVol = parseFloat(localStorage.getItem('temple_music_vol'));
@@ -33,6 +39,7 @@ class TempleAudioEngine {
     this.ttsPlaying = false;
     this.currentAudio = null;
     this.onTtsStateChange = null;
+    this.lastSpeechError = '';
   }
 
   ensureContext() {
@@ -293,6 +300,81 @@ class TempleAudioEngine {
   // --------------------------------------------------------------------------
   // 6. ZEROTTS VOICE QUEUE & PREFETCHER
   // --------------------------------------------------------------------------
+
+  setServerTtsAvailable(ready) {
+    this.serverTtsAvailable = Boolean(ready);
+  }
+
+  getVietnameseVoices() {
+    if (!this.browserSpeechSupported) return [];
+    try {
+      return window.speechSynthesis.getVoices().filter(v => /^vi([_-]|$)/i.test(v.lang || ''));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  setBrowserVoice(uri) {
+    this.browserVoiceURI = String(uri || '');
+    try { localStorage.setItem('temple_browser_voice', this.browserVoiceURI); } catch (_) {}
+  }
+
+  chooseBrowserVoice() {
+    const voices = this.getVietnameseVoices();
+    if (!voices.length) return null;
+    return voices.find(v => v.voiceURI === this.browserVoiceURI) ||
+      voices.find(v => /hoài|hoai|linh|my|mai|female|nữ/i.test(v.name)) ||
+      voices.find(v => v.default) || voices[0];
+  }
+
+  // Web Speech uses the OS voice instead of the Python ZeroTTS model.
+  // It needs an unlocked/foreground browser and a Vietnamese voice installed.
+  speakWithBrowser(item) {
+    return new Promise(resolve => {
+      let started = false;
+      let finished = false;
+      let watchdog;
+      const start = () => {
+        if (started) return;
+        started = true;
+        try { item.onStart?.(); } catch (_) {}
+        try { this.onTtsStateChange?.({ speaking: true, text: item.text, engine: 'browser' }); } catch (_) {}
+      };
+      const end = (ok, message = '') => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(watchdog);
+        if (!ok) this.lastSpeechError = message || 'Không thể phát giọng đọc';
+        start(); // Preserve the fortune visual even when speech is blocked.
+        try { item.onEnd?.(); } catch (_) {}
+        resolve(ok);
+      };
+      if (!this.browserSpeechSupported) {
+        end(false, 'Trình duyệt không hỗ trợ giọng đọc hệ thống');
+        return;
+      }
+      try {
+        const u = new window.SpeechSynthesisUtterance(item.text);
+        u.lang = 'vi-VN';
+        u.rate = 0.93;
+        u.pitch = 1;
+        u.volume = Math.max(0, Math.min(1, this.ttsVolume));
+        const voice = this.chooseBrowserVoice();
+        if (voice) u.voice = voice;
+        u.onstart = start;
+        u.onend = () => end(true);
+        u.onerror = event => end(false, event?.error || 'Trình duyệt chặn giọng đọc');
+        window.speechSynthesis.speak(u);
+        watchdog = setTimeout(() => {
+          try { window.speechSynthesis.cancel(); } catch (_) {}
+          end(false, 'Giọng đọc bị dừng hoặc không hoạt động');
+        }, Math.max(20000, Math.min(90000, item.text.length * 400)));
+      } catch (error) {
+        end(false, error?.message || 'Không thể mở giọng đọc');
+      }
+    });
+  }
+
   enqueueTts(text, options = {}) {
     const onStart = typeof options.onStart === 'function' ? options.onStart : null;
     const onEnd = typeof options.onEnd === 'function' ? options.onEnd : null;
@@ -315,6 +397,7 @@ class TempleAudioEngine {
       if (dropped?.onEnd) dropped.onEnd();
     }
 
+    this.lastSpeechError = '';
     const item = {
       id: `tts_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       text: clean,
@@ -335,6 +418,9 @@ class TempleAudioEngine {
 
   async fetchZeroTtsAudio(text, voice = 'maichi') {
     try {
+      if (!this.serverTtsAvailable) {
+        return { ok: false, error: 'ZeroTTS tắt trên Render Free; dùng giọng hệ thống' };
+      }
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -373,15 +459,21 @@ class TempleAudioEngine {
         await this.playWavUrl(audioUrl);
         if (item.onEnd) item.onEnd();
       } else {
-        if (item.onStart) item.onStart();
-        if (item.onEnd) setTimeout(item.onEnd, 5500);
+        // When the model is unavailable, speak locally rather than failing silently.
+        this.setBgDucking(true);
+        await this.speakWithBrowser(item);
       }
     } catch (err) {
-      console.warn('[ZeroTTS Playback Warning]', err);
+      console.warn('[Voice Playback Warning]', err);
       if (item.onStart) item.onStart();
       if (item.onEnd) item.onEnd();
     } finally {
       this.ttsPlaying = false;
+      if (this.lastSpeechError) {
+        try {
+          this.onTtsStateChange?.({ speaking: false, text: '', error: this.lastSpeechError, engine: 'browser' });
+        } catch (_) {}
+      }
       if (this.ttsQueue.length === 0) {
         this.setBgDucking(false);
         if (this.onTtsStateChange) {
