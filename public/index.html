@@ -203,13 +203,14 @@
           <button class="dock-btn active-toggle" id="btnToggleTts">🎙️ Giọng Đọc: BẬT</button>
           <button class="dock-btn active-toggle" id="btnToggleMusic">🎵 Nhạc Nền: BẬT</button>
         </div>
-        <div class="dock-section-title" style="margin-top:6px">🎤 Giọng đọc tiếng Việt từ thiết bị (miễn phí)</div>
-        <select id="browserVoiceSelect" class="dock-input" aria-label="Chọn giọng đọc tiếng Việt">
-          <option value="">Tự chọn giọng tiếng Việt</option>
+        <div class="dock-section-title" style="margin-top:6px">🎤 Giọng Neural tiếng Việt (qua Internet)</div>
+        <select id="neuralVoiceSelect" class="dock-input" aria-label="Chọn giọng Neural">
+          <option value="vi-VN-HoaiMyNeural">Hoài Mỹ — giọng nữ</option>
+          <option value="vi-VN-NamMinhNeural">Nam Minh — giọng nam</option>
         </select>
-        <button class="dock-btn gold" id="btnTestBrowserVoice">🔊 ĐỌC THỬ TIẾNG VIỆT</button>
+        <button class="dock-btn gold" id="btnTestBrowserVoice">🔊 NGHE THỬ GIỌNG NEURAL</button>
         <div id="browserVoiceStatus" role="status" aria-live="polite" style="color:#dfd0ad;font-size:12px;line-height:1.5">
-          Render Free tắt ZeroTTS để tiết kiệm RAM. Giọng hệ thống phát ngay trên thiết bị đang mở trang, không phải giọng Mai Chi.
+          Giọng Neural được tạo trực tuyến; Render Free không tải model. Đây là tích hợp Edge TTS không chính thức, có thể gián đoạn.
         </div>
         <div class="volume-control-row">
           <div class="volume-label-line">
