@@ -243,19 +243,19 @@ class ZeroTTSManager {
 // 3. TRẠNG THÁI SAGS CXR TAM BẢO & BẢNG VÀNG CÔNG ĐỨC
 // ============================================================================
 const DEFAULT_STATE = {
-  totalIncense: 108,
-  totalMerit: 1080,
-  woodenFishHits: 360,
-  bellRings: 36,
-  lanternCount: 18,
-  fortuneCount: 12,
-  activeIncenseSticks: 9,
+  totalIncense: 0,
+  totalMerit: 0,
+  woodenFishHits: 0,
+  bellRings: 0,
+  lanternCount: 0,
+  fortuneCount: 0,
+  activeIncenseSticks: 0,
   haloIntensity: 0.45,
   offerings: {
-    lotus: 3,
-    fruit: 2,
-    lamp: 2,
-    dragon: 1
+    lotus: 0,
+    fruit: 0,
+    lamp: 0,
+    dragon: 0
   },
   devotees: {},
   approvedDharmaNames: [],
@@ -918,7 +918,7 @@ async function connectTikTokLive(usernameOrUrl) {
     const commentText = data?.content || data?.comment || '';
     console.log(`[TikTok Chat] ${user}: ${commentText}`);
     const entrance=room.tiktokComment(uniqueId,user,commentText);
-    if(!entrance.approved)return; // any nonempty comment queues a request; no rituals without approval.
+    if(!entrance.approved)return; // Only genuine TikTok commenters participate; no fake spectators.
     const publicText=cleanChatMessage(commentText);
     if(publicText)room.submit(entrance.id,user,publicText,'tiktok');
     parseViewerComment(commentText,user,uniqueId,avatar);
@@ -1433,7 +1433,7 @@ app.post('/api/temple/join',guestOrigin,(req,res)=>{
  ses.lastComment=Date.now();ses.name=sanitizeUserName(display);
  const r=room.request({id:ses.id,displayName:ses.name,comment:body,source:'web'});
  if(!r.ok){
-   const reasons={'name-in-use':'Pháp danh đang được người khác sử dụng trong chánh điện. Nếu không phải bạn, hãy liên hệ Trụ trì.','empty-comment':'Lần đầu xin vào cần nhập lời nhắn để Trụ trì xem xét.','full':'Chánh điện đã đủ 100 người.'};
+   const reasons={'name-in-use':'Pháp danh đang được người khác sử dụng trong chánh điện. Nếu không phải bạn, hãy liên hệ Trụ trì.','empty-comment':'Hãy nhập lời nhắn hợp lệ.','full':'Chánh điện đã đủ 100 người.'};
    return res.status(r.reason==='name-in-use'?409:429).json({error:reasons[r.reason]||r.reason});
  }
  res.json({...room.status(ses),returning:Boolean(r.returning)});
@@ -1446,7 +1446,7 @@ app.post('/api/temple/leave',guestOrigin,(req,res)=>{
 app.get('/api/temple/chat',(req,res)=>{
  res.setHeader('Cache-Control','no-store');
  const ses=room.identity(req,res),data=room.chat(ses.id,authorized(req));
- if(!data)return res.status(403).json({error:'Chờ Trụ trì duyệt mới được xem và gửi chat'});
+ if(!data)return res.status(403).json({error:'Hãy vào chánh điện trước khi xem và gửi chat'});
  res.json(data);
 });
 app.post('/api/temple/chat',guestOrigin,(req,res)=>{
@@ -1514,12 +1514,12 @@ function locRitual(person,action,wish){
 app.get('/api/temple/loc/status',(req,res)=>{
  const person=locPerson(req,res);
  res.setHeader('Cache-Control','no-store');
- if(!person)return res.status(403).json({ok:false,error:'Chỉ người đã được Trụ trì duyệt mới nhận lộc'});
+ if(!person)return res.status(403).json({ok:false,error:'Chỉ người đang ở chánh điện mới nhận lộc'});
  res.json(locPool.status(person.id));
 });
 app.post('/api/temple/loc/claim',guestOrigin,(req,res)=>{
  const person=locPerson(req,res);
- if(!person)return res.status(403).json({ok:false,error:'Chờ Trụ trì duyệt trước khi mở lộc'});
+ if(!person)return res.status(403).json({ok:false,error:'Hãy vào chánh điện trước khi mở lộc'});
  const r=locPool.claim(person.id);
  if(r.ok)locNotify();
  res.status(r.ok?200:409).json(r);
