@@ -84,7 +84,7 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100,approve
   emit();
   // A real newly joined person gets one welcome announcement. Revisiting or
   // polling an already occupied session never triggers a duplicate greeting.
-  const welcomeText='Chúc '+person.name+' '+blessingTemplates[blessingSequence++%blessingTemplates.length];
+  const welcomeText='Chúc con '+blessingTemplates[blessingSequence++%blessingTemplates.length];
   notify('temple.joined',{name:person.name,source:person.source,wish:welcomeText});
   return {ok:true,status:'approved',person,returning:Boolean(approved.get(key))};
  }
@@ -143,7 +143,7 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100,approve
   // Each accepted, non-abbot message receives a varied, visibly automatic blessing.
   // Appending directly (not via submit) prevents reply loops.
   const phrase=blessingTemplates[blessingSequence++%blessingTemplates.length];
-  appendChat({senderId:'abbot:auto',name:'Trụ trì',body:'Chúc '+participant.name+' '+phrase,
+  appendChat({senderId:'abbot:auto',name:'Trụ Trì Trung Kiên',body:'Chào con '+participant.name+'. Chúc con '+phrase,
     source:'abbot',role:'abbot',automated:true});
   return {ok:true,message:entry};
  }
@@ -153,7 +153,7 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100,approve
   const stamp=now(),recent=lastMessage.get('abbot:manual')||0;
   if(stamp-recent<900)return {ok:false,reason:'cooldown'};
   lastMessage.set('abbot:manual',stamp);
-  const entry=appendChat({senderId:'abbot:manual',name:'Trụ trì',body,
+  const entry=appendChat({senderId:'abbot:manual',name:'Trụ Trì Trung Kiên',body,
     source:'abbot',role:'abbot',automated:false});
   // Manual admin messages never trigger an automatic blessing.
   return {ok:true,message:entry};
