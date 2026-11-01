@@ -14,7 +14,7 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.equal(ready,true,'Server must boot: '+logs.slice(-1500));
  let root=await get('/');assert.equal(root.status,200);
  const rootMarkup=await root.text();
- assert.match(rootMarkup,/Xin vào chánh điện/);
+ assert.match(rootMarkup,/VÀO CHÁNH ĐIỆN NGAY/);
  assert.match(rootMarkup,/SAGS CXR Tam Bảo/);
  assert.match(rootMarkup,/TRỤ TRÌ · ĐĂNG NHẬP/);
  assert.match(rootMarkup,/href="\/trutri"/);
@@ -25,12 +25,16 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  let me=await get('/api/temple/me');assert.equal(me.status,200);const cookie=me.headers.get('set-cookie').split(';')[0];
  assert.ok(cookie.startsWith('temple_guest='));
  let wrongOrigin=await post('/api/temple/join',{name:'Phật tử A',comment:'Nam mô'},cookie,'https://evil.example');assert.equal(wrongOrigin.status,403);
- let empty=await post('/api/temple/join',{name:'Phật tử A',comment:'   '},cookie);assert.equal(empty.status,400);
- let sent=await post('/api/temple/join',{name:'Phật tử A',comment:'Nam mô A Di Đà Phật'},cookie);assert.equal(sent.status,200);assert.equal((await sent.json()).status,'pending');
  assert.equal((await get('/chandien',{headers:{Cookie:cookie}})).status,302);
  assert.equal((await get('/api/temple/chat',{headers:{Cookie:cookie}})).status,403);
  assert.equal((await get('/api/temple/loc/status',{headers:{Cookie:cookie}})).status,403);
  assert.equal((await post('/api/temple/loc/claim',{},cookie)).status,403);
+ let sent=await post('/api/temple/join',{name:'Phật tử A',comment:''},cookie);
+ assert.equal(sent.status,200);
+ assert.equal((await sent.json()).status,'approved','Visitors are admitted immediately');
+ assert.equal((await get('/chandien',{headers:{Cookie:cookie}})).status,200);
+ assert.equal((await get('/api/temple/chat',{headers:{Cookie:cookie}})).status,200);
+ assert.equal((await get('/api/temple/loc/status',{headers:{Cookie:cookie}})).status,200);
  assert.equal((await get('/api/trutri/loc')).status,401);
  assert.equal((await post('/api/trutri/chat/send',{text:'Tôi là Trụ trì giả'})).status,401);
  let admin=await post('/auth/login',{password:pw});assert.equal(admin.status,200);
@@ -41,16 +45,19 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.match(abbotMarkup,/SAGS CXR Tam Bảo/);
  assert.match(abbotMarkup,/id="abbotTemplePreview"/);
  assert.match(abbotMarkup,/src="\/obs"/);
- assert.match(abbotMarkup,/Yêu cầu chờ duyệt/);
+ assert.match(abbotMarkup,/Tự động vào chánh điện/);
  assert.match(abbotMarkup,/PHÁT LỘC MAY MẮN/);
  assert.match(abbotMarkup,/Quản lý chat/);
  assert.match(abbotMarkup,/TRỤ TRÌ/);
  assert.match(abbotMarkup,/ĐÃ XÁC THỰC/);
  assert.match(abbotMarkup,/id="abbotChatForm"/);
- let queue=await get('/api/trutri/room',{headers:{Cookie:adminCookie}});const q=await queue.json();assert.equal(q.pending.length,1);
- const id=q.pending[0].id;
- const decision=await post('/api/trutri/decide',{id,allow:true,group:'internal'},adminCookie);assert.equal(decision.status,200);
- const status=await get('/api/temple/me',{headers:{Cookie:cookie}});assert.equal((await status.json()).status,'approved');
+ let queue=await get('/api/trutri/room',{headers:{Cookie:adminCookie}});
+ const q=await queue.json();
+ assert.equal(q.pending.length,0,'No moderation queue in open-door mode');
+ assert.equal(q.inside.length,1);
+ const id=q.inside[0].id;
+ const status=await get('/api/temple/me',{headers:{Cookie:cookie}});
+ assert.equal((await status.json()).status,'approved');
  let opened=await post('/api/trutri/loc/open',{total:100},adminCookie);assert.equal(opened.status,200);
  assert.equal((await post('/api/trutri/loc/open',{total:100},adminCookie)).status,409);
  const locClaim=await post('/api/temple/loc/claim',{},cookie);assert.equal(locClaim.status,200);
@@ -68,8 +75,6 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.equal((await post('/api/trutri/loc/close',{},adminCookie)).status,200);
  assert.equal((await post('/api/trutri/loc/open',{total:20},adminCookie)).status,200);
  assert.equal((await post('/api/temple/loc/claim',{},cookie)).status,200);
- assert.equal((await get('/chandien',{headers:{Cookie:cookie}})).status,200);
- assert.equal((await get('/api/temple/chat',{headers:{Cookie:cookie}})).status,200);
  let chat=await post('/api/temple/chat',{text:'Chào mọi người 🙏'},cookie);assert.equal(chat.status,200);
  let state=await get('/api/temple/chat',{headers:{Cookie:cookie}});
  let messages=(await state.json()).messages;
@@ -98,5 +103,5 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  state=await get('/api/temple/chat',{headers:{Cookie:cookie}});assert.equal((await state.json()).messages.length,0);
  let leave=await post('/api/temple/leave',{},cookie);assert.equal(leave.status,200);
  assert.equal((await get('/chandien',{headers:{Cookie:cookie}})).status,302);
- console.log('PASS: SAGS CXR Tam Bảo approval, lộc, verified abbot chat, auto personalized blessings, mute+clear');
+ console.log('PASS: SAGS CXR Tam Bảo open-door join, lộc, abbot chat, named blessings, mute and clear');
 }finally{child.kill('SIGTERM');await sleep(200);if(child.exitCode&&child.exitCode!==null)console.log('Server exited',child.exitCode)}})().catch(e=>{console.error(e);process.exitCode=1})
