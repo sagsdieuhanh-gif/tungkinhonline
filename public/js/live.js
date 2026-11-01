@@ -42,7 +42,7 @@
   const canvas = document.getElementById('templeCanvas');
   const particles = new window.TempleParticleEngine(canvas);
   const audio = new window.TempleAudioEngine();
-  const voiceSelect = document.getElementById('browserVoiceSelect');
+  const voiceSelect = document.getElementById('neuralVoiceSelect');
   const voiceStatus = document.getElementById('browserVoiceStatus');
 
   function updateVoiceStatus(message, danger = false) {
@@ -50,56 +50,21 @@
     voiceStatus.textContent = message;
     voiceStatus.style.color = danger ? '#ffab9f' : '#d8f3ca';
   }
-
-  function refreshAvailableVoices() {
-    if (!voiceSelect) return;
-    const voices = audio.getVietnameseVoices();
-    const selected = audio.browserVoiceURI || '';
-    voiceSelect.replaceChildren();
-    const option = document.createElement('option');
-    option.value = '';
-    option.textContent = 'Tự chọn giọng tiếng Việt';
-    voiceSelect.appendChild(option);
-    voices.forEach(voice => {
-      const entry = document.createElement('option');
-      entry.value = voice.voiceURI;
-      entry.textContent = voice.name + ' (' + voice.lang + ')';
-      voiceSelect.appendChild(entry);
+  if (voiceSelect) {
+    voiceSelect.value = audio.onlineVoice;
+    voiceSelect.addEventListener('change', event => {
+      audio.setOnlineVoice(event.target.value);
+      updateVoiceStatus('Đã chọn giọng ' + (audio.onlineVoice.includes('HoaiMy') ? 'Hoài Mỹ' : 'Nam Minh') + '. Bấm NGHE THỬ.');
     });
-    voiceSelect.value = voices.some(v => v.voiceURI === selected) ? selected : '';
-    if (!audio.browserSpeechSupported) {
-      updateVoiceStatus('Trình duyệt này không hỗ trợ giọng đọc hệ thống. Hãy dùng Chrome, Edge hoặc Safari mới.', true);
-    } else if (!voices.length) {
-      updateVoiceStatus('Chưa phát hiện giọng tiếng Việt. Hãy cài giọng vi-VN trong cài đặt giọng nói của thiết bị, sau đó tải lại trang.', true);
-    } else {
-      updateVoiceStatus('Có ' + voices.length + ' giọng tiếng Việt trên thiết bị. Bấm ĐỌC THỬ để kích hoạt âm thanh.');
-    }
   }
-
-  voiceSelect?.addEventListener('change', event => {
-    audio.setBrowserVoice(event.target.value);
-    updateVoiceStatus('Đã chọn giọng đọc. Bấm ĐỌC THỬ để nghe.');
-  });
-  if (audio.browserSpeechSupported) {
-    window.speechSynthesis.addEventListener?.('voiceschanged', refreshAvailableVoices);
-  }
-  refreshAvailableVoices();
 
   audio.onTtsStateChange = ({ speaking, error, engine }) => {
-    if (error) updateVoiceStatus('Giọng đọc lỗi: ' + error, true);
-    else if (speaking) updateVoiceStatus('🔊 Đang đọc lời khấn (' + (engine === 'browser' ? 'giọng hệ thống' : 'ZeroTTS') + ')...');
-    else if (audio.browserSpeechSupported) {
-      const voices = audio.getVietnameseVoices();
-      if (voices.length) updateVoiceStatus('Đã sẵn sàng đọc lời khấn bằng giọng hệ thống.');
-    }
+    if (error) updateVoiceStatus('❌ ' + error, true);
+    else if (speaking) updateVoiceStatus('🔊 Đang phát giọng Neural tiếng Việt...');
   };
 
   document.getElementById('btnTestBrowserVoice')?.addEventListener('click', () => {
     audio.ensureContext();
-    if (!audio.browserSpeechSupported) {
-      updateVoiceStatus('Thiết bị không hỗ trợ Web Speech.', true);
-      return;
-    }
     if (!audio.ttsEnabled) {
       audio.ttsEnabled = true;
       const button = document.getElementById('btnToggleTts');
@@ -108,8 +73,10 @@
         button.classList.add('active-toggle');
       }
     }
-    updateVoiceStatus('Đang kiểm tra giọng đọc tiếng Việt...');
-    audio.enqueueTts('Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ.');
+    updateVoiceStatus('⏳ Đang yêu cầu giọng Neural online, vui lòng kiểm tra âm thanh...');
+    audio.enqueueTts('Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ.', {
+      url: '/api/tts/demo?voice=' + encodeURIComponent(audio.onlineVoice)
+    });
   });
 
   function unlockAudioOnce() {
@@ -563,7 +530,7 @@
     if (!ev) return;
 
     if (ev.ttsText && ev.type !== 'drawFortune') {
-      audio.enqueueTts(ev.ttsText, { voice: ev.ttsVoice || 'maichi' });
+      audio.enqueueTts(ev.ttsText, { voice: ev.ttsVoice || 'maichi', eventId: ev.id });
     }
 
     switch (ev.type) {
@@ -630,6 +597,7 @@
         // Chỉ hiển thị tờ Quẻ Xăm đúng thời điểm giọng đọc bắt đầu vang lên!
         audio.enqueueTts(ev.ttsText || '', {
           voice: ev.ttsVoice || 'maichi',
+          eventId: ev.id,
           onStart: () => {
             audio.playIncenseChime();
             showFortuneModal(ev.user, ev.fortune);
@@ -906,7 +874,7 @@
     btn.textContent = `🎙️ Giọng Đọc: ${audio.ttsEnabled ? 'BẬT' : 'TẮT'}`;
     btn.classList.toggle('active-toggle', audio.ttsEnabled);
     updateVoiceStatus(audio.ttsEnabled
-      ? 'Giọng đọc đã bật. Bấm ĐỌC THỬ để kiểm tra âm thanh.'
+      ? 'Giọng Neural đã bật. Bấm NGHE THỬ để kiểm tra.'
       : 'Giọng đọc đã tắt trên thiết bị này.');
   });
 
