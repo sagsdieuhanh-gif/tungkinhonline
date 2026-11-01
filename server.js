@@ -1504,14 +1504,20 @@ function locRitual(person,action,wish){
  if(action==='bell')return Rituals.ringBell(info);
  if(action==='lantern')return Rituals.sendPrayer(info);
  if(action==='fortune')return Rituals.drawFortune({...info,topic:info.wish});
- if(action==='lotus'){
-   // Genuine virtual flower. Never manufacture or report TikTok coins.
-   const dev=recordDevotee(person.name,person.id,person.avatar||'',20,0,1,info.wish);
-   state.offerings.lotus=(state.offerings.lotus||0)+1;
+ if(action==='lotus'||action==='fruit'||action==='lamp'){
+   // All offerings are paid exclusively with the internal virtual wallet.
+   const offering={
+     lotus:{giftName:'Hoa Sen Bình An',cost:20,merit:20},
+     fruit:{giftName:'Mâm Trái Cây Cúng Dường',cost:25,merit:25},
+     lamp:{giftName:'Đèn Dầu Cầu An',cost:15,merit:15}
+   }[action];
+   const dev=recordDevotee(person.name,person.id,person.avatar||'',offering.merit,0,1,info.wish);
+   state.offerings[action]=(state.offerings[action]||0)+1;
    const event=pushEventLog({type:'offerGift',user:dev.name,uniqueId:person.id,
-     avatar:dev.avatar,giftType:'lotus',giftName:'Hoa Sen Bình An',
-     coins:0,virtualCost:20,merit:20,wish:info.wish,
-     ttsText:'Nam mô A Di Đà Phật. Thí chủ '+dev.name+' thành tâm dâng hoa sen cầu bình an.'});
+     avatar:dev.avatar,giftType:action,giftName:offering.giftName,
+     coins:0,virtualCost:offering.cost,merit:offering.merit,wish:info.wish,
+     ttsText:'Nam mô A Di Đà Phật. Thí chủ '+dev.name+' thành tâm cúng dường '+offering.giftName+', cầu bình an.',
+     ttsVoice:state.settings.ttsVoice||'maichi'});
    saveState();
    broadcastNotification('temple.event',{event,state:getPublicState()});
    return {event};
