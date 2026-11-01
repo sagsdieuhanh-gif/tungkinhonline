@@ -1108,7 +1108,7 @@ function authorized(req) {
   const raw = cookies.find(x => x.startsWith('tko_admin='));
   if (!raw) return false;
   const value = raw.substring('tko_admin='.length);
-  const match = /^(\\d{13})\\.([a-f0-9]{64})$/.exec(value);
+  const match = /^(\d{13})\.([a-f0-9]{64})$/.exec(value);
   if (!match) return false;
   const expiry = Number(match[1]);
   if (!Number.isSafeInteger(expiry) || expiry < Date.now() || expiry > Date.now() + SESSION_TTL_MS) return false;
