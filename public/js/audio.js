@@ -15,6 +15,8 @@ class TempleAudioEngine {
     this.ttsVoice = 'maichi';
     // Keep server ZeroTTS off on Render Free (512 MB). Use device TTS.
     this.serverTtsAvailable = false;
+    this.onlineVoice = 'vi-VN-HoaiMyNeural';
+    try { this.onlineVoice = localStorage.getItem('temple_online_voice') || this.onlineVoice; } catch (_) {}
     this.browserSpeechSupported = typeof window.speechSynthesis !== 'undefined' &&
       typeof window.SpeechSynthesisUtterance === 'function';
     try { this.browserVoiceURI = localStorage.getItem('temple_browser_voice') || ''; }
@@ -305,6 +307,11 @@ class TempleAudioEngine {
     this.serverTtsAvailable = Boolean(ready);
   }
 
+  setOnlineVoice(voice) {
+    this.onlineVoice = voice === 'vi-VN-NamMinhNeural' ? voice : 'vi-VN-HoaiMyNeural';
+    try { localStorage.setItem('temple_online_voice', this.onlineVoice); } catch (_) {}
+  }
+
   getVietnameseVoices() {
     if (!this.browserSpeechSupported) return [];
     try {
@@ -402,14 +409,18 @@ class TempleAudioEngine {
       id: `tts_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       text: clean,
       voice: (options.voice || this.ttsVoice || 'maichi').toLowerCase(),
-      url: options.url || null,
+      url: options.url || (this.serverTtsAvailable && options.eventId
+        ? '/api/tts/event/' + encodeURIComponent(options.eventId) + '?voice=' + encodeURIComponent(this.onlineVoice)
+        : null),
       onStart,
       onEnd,
       fetchPromise: null
     };
 
     if (!item.url && this.serverTtsAvailable) {
-      item.fetchPromise = this.fetchZeroTtsAudio(item.text, item.voice);
+      // Only administrator preview can synthesize arbitrary text.
+      // Public Live stage uses the event-restricted audio URL above.
+      item.fetchPromise = null;
     }
 
     this.ttsQueue.push(item);
@@ -459,9 +470,15 @@ class TempleAudioEngine {
         await this.playWavUrl(audioUrl);
         if (item.onEnd) item.onEnd();
       } else {
-        // When the model is unavailable, speak locally rather than failing silently.
-        this.setBgDucking(true);
-        await this.speakWithBrowser(item);
+        // Never automatically substitute a robotic OS voice for Neural TTS.
+        if (this.serverTtsAvailable) {
+          this.lastSpeechError = 'Không có tệp giọng Neural. Kiểm tra kết nối mạng.';
+          try { item.onStart?.(); } catch (_) {}
+          try { item.onEnd?.(); } catch (_) {}
+        } else {
+          this.setBgDucking(true);
+          await this.speakWithBrowser(item);
+        }
       }
     } catch (err) {
       console.warn('[Voice Playback Warning]', err);
@@ -496,12 +513,14 @@ class TempleAudioEngine {
           resolve();
         };
         audio.onerror = () => {
+          this.lastSpeechError = 'Giọng Neural chưa tải được từ máy chủ. Hãy kiểm tra trạng thái TTS.';
           this.currentAudio = null;
           resolve();
         };
         const playPromise = audio.play();
         if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch(() => {
+          playPromise.catch((error) => {
+            this.lastSpeechError = 'Trình duyệt chặn phát âm thanh. Hãy bấm BẬT ÂM THANH rồi thử lại.';
             this.currentAudio = null;
             resolve();
           });
