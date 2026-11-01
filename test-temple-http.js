@@ -62,5 +62,5 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  state=await get('/api/temple/chat',{headers:{Cookie:cookie}});assert.equal((await state.json()).messages.length,0);
  let leave=await post('/api/temple/leave',{},cookie);assert.equal(leave.status,200);
  assert.equal((await get('/chandien',{headers:{Cookie:cookie}})).status,302);
- console.log('PASS: Linh Ung approval, lucky envelope, duplicate claim, free/paid rituals, chat moderation, protected routes');
+ console.log('PASS: SAGS CXR Tam Bảo approval, lucky envelope, duplicate claim, free/paid rituals, chat moderation, protected routes');
 }finally{child.kill('SIGTERM');await sleep(200);if(child.exitCode&&child.exitCode!==null)console.log('Server exited',child.exitCode)}})().catch(e=>{console.error(e);process.exitCode=1})
