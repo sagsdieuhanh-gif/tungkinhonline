@@ -135,6 +135,38 @@ body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
 .meditation-actions button:disabled{opacity:.5;cursor:not-allowed}
 #meditationMessage{font-size:12px;color:#c3edc5;line-height:1.6;padding-top:8px;min-height:22px}
 #visitorMeditationToggle.meditating{background:#cf9f47;color:#241004;font-weight:900}
+
+/* Lucky red envelopes fall only for the unclaimed participant in the active round.
+   Effects are local to this visitor; they never appear on the shared OBS view. */
+.lucky-rain-layer[hidden],.lucky-rain-prompt[hidden]{display:none!important}
+.lucky-rain-layer{position:fixed;inset:0;z-index:9340;overflow:hidden;pointer-events:none;
+  contain:layout style paint;isolation:isolate}
+.lucky-rain-envelope{position:absolute;left:0;top:0;line-height:1;font-size:var(--lucky-size,33px);
+  opacity:0;will-change:transform,opacity;filter:drop-shadow(0 3px 5px #0009);
+  animation:luckyEnvelopeFall var(--lucky-time,8s) linear forwards;
+  -webkit-user-select:none;user-select:none}
+@keyframes luckyEnvelopeFall{
+  0%{opacity:0;transform:translate3d(0,-85px,0) rotate(-20deg) scale(.85)}
+  8%{opacity:1}
+  89%{opacity:1}
+  100%{opacity:0;transform:translate3d(var(--lucky-drift,40px),110dvh,0) rotate(var(--lucky-turn,360deg)) scale(1.08)}
+}
+.lucky-rain-prompt{position:fixed;z-index:9370;left:50%;bottom:max(68px,env(safe-area-inset-bottom) + 68px);
+  transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);
+  padding:11px 17px;border:2px solid #ffe99b;border-radius:999px;
+  background:linear-gradient(125deg,#fae5a1,#dba74b);color:#2b1308;
+  font:800 14px/1.35 system-ui,sans-serif;box-shadow:0 6px 26px #000c,0 0 20px #f6bb5577;
+  animation:luckyPromptGlow 2.4s ease-in-out infinite}
+.lucky-rain-prompt:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.lucky-rain-prompt:disabled{opacity:.75;cursor:wait}
+@keyframes luckyPromptGlow{50%{box-shadow:0 7px 30px #000a,0 0 30px #ffdd92bb}}
+@media(max-width:460px){
+ .lucky-rain-prompt{font-size:12px;padding:11px 12px;bottom:max(66px,env(safe-area-inset-bottom) + 66px)}
+}
+@media(prefers-reduced-motion:reduce){
+ .lucky-rain-envelope{display:none!important;animation:none!important}
+ .lucky-rain-prompt{animation:none!important}
+}
 </style></head><body><main>
 <nav class="visitor-topbar" aria-label="Quản trị"><a class="abbot-entry-btn" href="/trutri">🔐 TRỤ TRÌ · ĐĂNG NHẬP</a></nav>
 <div class="eyebrow">NAM MÔ A DI ĐÀ PHẬT</div><h1>SAGS CXR Tam Bảo</h1><p class="sub">🪷 Chánh điện mở cửa · Người thật tham gia · Trụ trì đồng hành</p>
@@ -191,16 +223,77 @@ body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
   <button type="button" id="visitorLocToggle" title="Mở lộc, ngồi thiền và hành lễ" aria-expanded="false">🧧 Lộc & lễ</button>
   <button type="button" id="visitorMeditationToggle" title="Bắt đầu hoặc xem thời gian thiền">🧘 Thiền +10/phút</button>
 </div>
+<div id="luckyEnvelopeRain" class="lucky-rain-layer" aria-hidden="true" hidden></div>
+<button type="button" id="luckyEnvelopePrompt" class="lucky-rain-prompt" hidden>🧧 CÓ LỘC TỪ TRỤ TRÌ · MỞ LỘC</button>
 <button type="button" id="visitorChatToggle" class="chat-toggle" hidden aria-expanded="false">💬 Mở phòng chat</button>
 <div class="card"><h2>📜 Quy định tham gia</h2><p>Không có nhân vật giả; mọi người vào chùa được xuất hiện ngay, tối đa 100 vị trí. Nhập đúng pháp danh để trở lại. Một pháp danh chỉ sử dụng được cho một người tại cùng thời điểm; tên không phải cơ chế xác minh danh tính. Không chia sẻ số điện thoại, thông tin thanh toán hoặc dữ liệu cá nhân. Lộc lễ chỉ là điểm ảo, không quy đổi tiền hoặc xu TikTok.</p></div>
 <footer><a href="/trutri" style="display:inline-block;color:#ffe0a1;font-weight:700;margin-bottom:14px;padding:10px 14px;border:1px solid #b58a4c;border-radius:10px;text-decoration:none">🔐 TRỤ TRÌ · QUẢN LÝ CHÁNH ĐIỆN</a><div>SAGS CXR Tam Bảo · Chánh điện mở cửa tự do tối đa 100 người · Trụ trì có thể quản lý khi cần.</div></footer>
 </main><script src="/js/chat-dock.js"></script><script>
 'use strict';
 const $=id=>document.getElementById(id);let currentStatus='',currentVersion=-1,chatVersion=-1,busy=false;
+// This is a purely visual notification. Only server /api/temple/loc/status
+// determines whether this attendee can claim the current gift round.
+const luckyLayer=$('luckyEnvelopeRain');
+const luckyPrompt=$('luckyEnvelopePrompt');
+let luckyRainTimer=null, luckyRound=null, luckyActive=false, luckyClaimPending=false;
+const locallyClaimedRounds=new Set();
+const luckyReducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
+function stopLuckyRain(){
+  luckyActive=false;
+  if(luckyRainTimer!==null){clearInterval(luckyRainTimer);luckyRainTimer=null}
+  luckyLayer.replaceChildren();
+  luckyLayer.hidden=true;
+  luckyPrompt.hidden=true;
+  luckyPrompt.disabled=false;
+  luckyRound=null;
+}
+function spawnLuckyEnvelope(){
+  if(!luckyActive||document.hidden||luckyReducedMotion||luckyLayer.childElementCount>=13)return;
+  const envelope=document.createElement('span');
+  envelope.className='lucky-rain-envelope';
+  envelope.textContent='🧧';
+  envelope.style.left=(4+Math.random()*89).toFixed(2)+'%';
+  envelope.style.setProperty('--lucky-size',(24+Math.round(Math.random()*21))+'px');
+  envelope.style.setProperty('--lucky-time',(6.5+Math.random()*2.5).toFixed(2)+'s');
+  envelope.style.setProperty('--lucky-drift',(Math.random()*140-70).toFixed(0)+'px');
+  envelope.style.setProperty('--lucky-turn',(Math.random()>0.5?360:-360)+'deg');
+  envelope.addEventListener('animationend',()=>envelope.remove(),{once:true});
+  luckyLayer.append(envelope);
+  // Fallback cleanup, e.g. when browser drops animationend during tab switch.
+  setTimeout(()=>envelope.remove(),10000);
+}
+function updateLuckyRain(envelope,alreadyClaimed){
+  const roundId=envelope?.id;
+  const eligible=currentStatus==='approved'
+    &&document.body.classList.contains('sanctuary-fullscreen')
+    &&!document.hidden
+    &&Boolean(envelope?.active)
+    &&Number(envelope?.remaining)>0
+    &&!Boolean(alreadyClaimed)
+    &&!locallyClaimedRounds.has(roundId);
+  if(!eligible){stopLuckyRain();return}
+  if(luckyActive&&luckyRound===roundId)return;
+  stopLuckyRain();
+  luckyActive=true;luckyRound=roundId;luckyLayer.hidden=false;luckyPrompt.hidden=false;
+  for(let i=0;i<4;i++)spawnLuckyEnvelope();
+  if(!luckyReducedMotion)luckyRainTimer=setInterval(spawnLuckyEnvelope,750);
+}
+luckyPrompt.addEventListener('click',()=>{
+  if(!luckyActive||luckyClaimPending)return;
+  // Delegate to the existing, server-authoritative MỞ LỘC action.
+  const claim=$('locGuestClaim');
+  if(claim&&!claim.disabled)claim.click();
+  else{
+    $('locGuestPanel').classList.add('loc-open');
+    $('visitorLocToggle').setAttribute('aria-expanded','true');
+  }
+});
+
 function setSanctuaryFullscreen(active){
   document.body.classList.toggle('sanctuary-fullscreen',Boolean(active));
   $('sanctuaryToolbar').hidden=!active;
   if(!active){
+    stopLuckyRain();
     $('locGuestPanel').classList.remove('loc-open');
     $('visitorLocToggle').setAttribute('aria-expanded','false');
   }
@@ -351,16 +444,24 @@ async function refreshLoc(){
   const b=$('locGuestClaim');
   b.disabled=locBusy||!e?.active||v.claimed;
   b.textContent=v.claimed?'✅ ĐÃ MỞ LỘC ĐỢT NÀY':e?.active?'🧧 MỞ LỘC MAY MẮN':'🧧 CHỜ TRỤ TRÌ PHÁT LỘC';
- }catch(err){$('locGuestStatus').textContent=err.message}
+  updateLuckyRain(e,v.claimed);
+ }catch(err){
+  stopLuckyRain();
+  $('locGuestStatus').textContent=err.message;
+ }
 }
 $('locGuestClaim').onclick=async()=>{
- if(locBusy||currentStatus!=='approved')return;
- locBusy=true;$('locGuestClaim').disabled=true;
+ if(locBusy||luckyClaimPending||currentStatus!=='approved')return;
+ locBusy=true;luckyClaimPending=true;
+ $('locGuestClaim').disabled=true;
+ luckyPrompt.disabled=true;
  try{
   const r=await api('/api/temple/loc/claim',{});
+  if(luckyRound)locallyClaimedRounds.add(luckyRound);
+  stopLuckyRain();
   $('locGuestStatus').textContent='🎊 Bạn đã mở được '+r.amount+' lộc ảo! Hãy chọn một nghi thức bên dưới.';
  }catch(err){$('locGuestStatus').textContent='❌ '+err.message}
- finally{locBusy=false;await refreshLoc()}
+ finally{luckyClaimPending=false;locBusy=false;await refreshLoc()}
 };
 document.querySelectorAll('[data-loc-ritual]').forEach(b=>b.onclick=async()=>{
  if(locBusy||currentStatus!=='approved')return;
@@ -383,7 +484,9 @@ window.setupMovableTempleChat({panelId:'visitorChatDock',headerId:'visitorChatHa
  toggleId:'visitorChatToggle',closeId:'visitorChatClose',storeKey:'visitor'});
 setInterval(refresh,5000);setInterval(refreshLoc,4000);
 setInterval(()=>{if(currentStatus==='approved'&&!document.hidden)loadChat()},2700);document.addEventListener('visibilitychange',()=>{
- if(document.hidden && meditationActive) stopMeditation(true);
- if(!document.hidden) refresh();
+ if(document.hidden){
+   stopLuckyRain();
+   if(meditationActive)stopMeditation(true);
+ }else refresh();
 });refresh();
 </script></body></html>
