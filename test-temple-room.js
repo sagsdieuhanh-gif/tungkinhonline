@@ -9,6 +9,7 @@ assert.ok(fakeRes.headers['Set-Cookie'].includes('HttpOnly'));
 assert.ok(fakeRes.headers['Set-Cookie'].includes('Secure'));
 assert.ok(session.id.startsWith('web:'));
 assert.equal(room.status(session).status,'new');
+session.lastComment=now; // The HTTP join route records the submitted comment.
 assert.equal(room.request({id:session.id,displayName:'Nhân viên A',comment:'Nam mô A Di Đà Phật'}).status,'pending');
 assert.equal(room.status(session).status,'pending');
 assert.equal(room.list().length,0);
