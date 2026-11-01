@@ -269,7 +269,7 @@ const DEFAULT_STATE = {
   tiktok: {
     connected: false,
     connecting: false,
-    username: 'zenfacts_vn',
+    username: '',
     roomId: null,
     viewerCount: 0,
     lastError: null
