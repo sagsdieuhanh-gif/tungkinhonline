@@ -74,7 +74,7 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.match(abbotMarkup,/PHÁT LỘC MAY MẮN/);
  assert.match(abbotMarkup,/Chat chung/);
  assert.match(abbotMarkup,/TRỤ TRÌ/);
- assert.match(abbotMarkup,/TRỤ TRÌ TRUNG KIÊN/);
+ assert.match(abbotMarkup,/Trụ Trì Trung Kiên/);
  assert.doesNotMatch(abbotMarkup,/ĐÃ XÁC THỰC/);
  assert.match(abbotMarkup,/id="abbotChatForm"/);
  let queue=await get('/api/trutri/room',{headers:{Cookie:adminCookie}});
