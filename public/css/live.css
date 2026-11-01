@@ -1325,3 +1325,35 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 .shared-chat-compose button { flex:none; }
 .shared-chat-status { color:#e0c6a0;font-size:11px;line-height:1.5;min-height:16px; }
 #clearSharedChat[hidden] { display:none!important; }
+
+
+/* Visitor nickname gate: shown immediately on normal page entry, hidden for OBS. */
+.visitor-entry-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: rgba(10,3,2,.89); padding: max(18px, env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));
+  display: grid; place-items: center; overflow-y: auto;
+}
+.visitor-entry-overlay.is-hidden, body.obs-mode .visitor-entry-overlay { display: none!important; }
+.visitor-entry-card {
+  width: min(450px,100%); background: linear-gradient(145deg,#3a1e12,#180906);
+  border: 2px solid #d6a84b; border-radius: 22px; box-shadow: 0 18px 70px #0009;
+  padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; text-align: center;
+}
+.visitor-entry-icon { font-size: 46px; }
+.visitor-entry-card h1 { color: #ffe39b; font: 800 21px/1.4 'Be Vietnam Pro',sans-serif; }
+.visitor-entry-card p, .visitor-entry-note { color:#e4cba2;line-height:1.55;font-size:13px; }
+.visitor-entry-card label { color:#ffe4ae;text-align:left;font-weight:700;font-size:13px; }
+.visitor-entry-card input {
+  border:1.5px solid #bd954c;background:#100704;color:#fff4e2;
+  padding:15px;border-radius:10px;font-size:16px;width:100%;user-select:text;
+}
+.visitor-entry-card button {
+  padding:14px 12px;border:0;border-radius:11px;
+  background:linear-gradient(#ffe493,#d99d3a);color:#241006;
+  font-size:14px;font-weight:800;cursor:pointer;
+}
+.visitor-entry-card button:disabled { opacity:.5;cursor:wait; }
+.visitor-entry-error { color:#ffaaa0;min-height:18px;font-size:12px; }
+.shared-chat-name-row { display:flex;align-items:center;gap:8px; }
+.shared-chat-name-row input { min-width:0; }
+.shared-chat-name-row button { flex:none; }
