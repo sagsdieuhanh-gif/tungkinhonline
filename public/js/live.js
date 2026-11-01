@@ -788,7 +788,7 @@
       const line = document.createElement('div');
       line.className = 'live-chat-overlay-line' + (verified ? ' abbot-chat' : '');
       const author = document.createElement('strong');
-      author.textContent = verified ? '👑 TRỤ TRÌ' + (m.automated ? ' · CHÚC TỰ ĐỘNG: ' : ': ')
+      author.textContent = verified ? '👑 TRỤ TRÌ TRUNG KIÊN' + (m.automated ? ' · CHÚC TỰ ĐỘNG: ' : ': ')
         : ((m.source === 'tiktok' ? '♪ ' : '') + String(m.name || 'Phật tử').slice(0, 20) + ': ');
       const txt = document.createElement('span');
       txt.textContent = String(m.text || '').slice(0, 180);
@@ -801,8 +801,8 @@
     const when = Number(data.timestamp);
     if (!Number.isFinite(when) || Date.now() - when > 8500 || when - Date.now() > 10000) return;
     lastStageWelcomeId = data.id;
-    welcomeTitle.textContent = '🙏 Chào mừng ' + String(data.name || 'Phật tử').slice(0, 32);
-    welcomeWish.textContent = String(data.wish || 'Chúc thân tâm an lạc, gia đình bình an.').slice(0, 210);
+    welcomeTitle.textContent = '🙏 Chào con ' + String(data.name || 'Phật tử').slice(0, 32);
+    welcomeWish.textContent = String(data.wish || 'Chúc con thân tâm an lạc, gia đình bình an.').slice(0, 210);
     welcomeBanner.setAttribute('aria-hidden', 'false');
     welcomeBanner.classList.add('is-visible');
     clearTimeout(stageWelcomeTimer);
