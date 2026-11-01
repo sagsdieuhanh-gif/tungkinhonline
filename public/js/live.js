@@ -7,7 +7,11 @@
  */
 (function () {
   const params = new URLSearchParams(window.location.search);
-  if (params.get('obs') === '1') {
+  // /obs is the dedicated 9:16 stream source. Earlier versions only enabled
+  // OBS layout with ?obs=1, leaving /obs in an ordinary app layout and causing
+  // a tiny canvas to be magnified by TikTok LIVE Studio.
+  const isBroadcastSource = window.location.pathname === '/obs' || params.get('obs') === '1';
+  if (isBroadcastSource) {
     document.body.classList.add('obs-mode');
   }
 
@@ -29,14 +33,29 @@
   }
   requestAnimationFrame(fitStage);
 
-  // The mobile-friendly JPG loads faster. Fall back to the original PNG if
-  // needed rather than leaving a solid dark stage on a failed image request.
+  // High-definition LIVE uses the original lossless PNG. The JPEG is only
+  // 810x1440, below the 1080x1920 native stream canvas: enlarging it blurs
+  // edges, small text/art and golden ornamental details.
+  // Lightweight JPEG is retained for mobile/small-screen temple viewers.
   const sanctuaryImage = document.querySelector('.sanctuary-bg-img');
-  sanctuaryImage?.addEventListener('error', () => {
-    if (!sanctuaryImage.src.endsWith('/assets/amitabha_stage.png')) {
-      sanctuaryImage.src = '/assets/amitabha_stage.png';
-    }
-  });
+  if (sanctuaryImage) {
+    const primary = isBroadcastSource
+      ? '/assets/amitabha_stage.png'
+      : '/assets/amitabha_stage.jpg';
+    const fallback = isBroadcastSource
+      ? '/assets/amitabha_stage.jpg'
+      : '/assets/amitabha_stage.png';
+    let fallbackUsed = false;
+    sanctuaryImage.addEventListener('error', () => {
+      if (!fallbackUsed) {
+        fallbackUsed = true;
+        sanctuaryImage.src = fallback;
+      }
+    });
+    sanctuaryImage.decoding = 'async';
+    sanctuaryImage.fetchPriority = 'high';
+    if (isBroadcastSource) sanctuaryImage.src = primary;
+  }
 
   // 2. Khởi tạo Particle Engine & Audio Engine (ZeroTTS Mai Chi)
   const canvas = document.getElementById('templeCanvas');
