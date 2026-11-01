@@ -647,6 +647,7 @@
         break;
       }
       case 'burnIncense': {
+        animateExactlyThisDevotee(ev);
         audio.playIncenseChime();
         particles.spawnIncenseBurst(540, 895);
         particles.spawnFloatingMerit(`+${ev.merit} Công Đức`, 540, 860, '#ffe082');
@@ -662,6 +663,7 @@
       }
 
       case 'ringBell': {
+        animateExactlyThisDevotee(ev);
         audio.playTempleBell(1.0);
         pulseHallBowing();
         particles.spawnBellWave(540, 510, 4);
@@ -671,6 +673,7 @@
       }
 
       case 'sendPrayer': {
+        animateExactlyThisDevotee(ev);
         audio.playIncenseChime();
         spawnSkyLantern(ev.user, ev.wish);
         particles.spawnFloatingMerit(`+${ev.merit} Công Đức`, 540, 920, '#ffb74d');
@@ -683,7 +686,9 @@
         audio.playTempleBell(0.85);
         particles.spawnIncenseBurst(540, 895);
         particles.spawnFloatingMerit(`+${ev.merit} Công Đức`, 540, 840, '#fff3b0');
-        animateWalkerOnCarpet(ev.user, ev.avatar, `🪷 Dâng ${ev.giftName} (+${ev.merit} CĐ)`, ev.wish);
+        animateExactlyThisDevotee(ev);
+        const emoji=ev.giftType==='fruit'?'🍎':ev.giftType==='lamp'?'🪔':'🪷';
+        animateWalkerOnCarpet(ev.user, ev.avatar, `${emoji} Dâng ${ev.giftName} (+${ev.merit} CĐ)`, ev.wish);
         break;
       }
 
