@@ -1,8 +1,24 @@
 'use strict';
 // Comment-only temple admission and shared chat. The server, not the browser, owns attendance.
 const crypto=require('crypto');
-function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
+function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100,approvedNames=[],onRegistryChange=()=>{}}={}){
  const pending=new Map(),inside=new Map(),sessions=new Map(),messages=[],muted=new Set(),lastMessage=new Map();
+ // A previously approved dharma name can re-enter without another approval.
+ // Case and surrounding spaces are ignored; Vietnamese accents are preserved.
+ const nameKey=value=>String(value||'').normalize('NFC').replace(/\s+/g,' ').trim().toLocaleLowerCase('vi');
+ const approved=new Map();
+ for(const entry of Array.isArray(approvedNames)?approvedNames:[]) {
+   const approvedName=String(entry?.name||'').normalize('NFC').trim();
+   const key=nameKey(approvedName);
+   if(key&&approvedName.length>=2&&approvedName.length<=32) approved.set(key,{
+     name:approvedName,group:entry.group==='internal'?'internal':'tiktok',
+     source:entry.source==='tiktok'?'tiktok':'web',
+     approvedAt:entry.approvedAt||new Date(now()).toISOString()
+   });
+ }
+ const approvedList=()=>[...approved.values()].map(v=>({...v}));
+ const persistRegistry=()=>onRegistryChange(approvedList());
+
  const blessingTemplates=[
   'luôn mạnh khỏe, bình an và gặp nhiều điều tốt đẹp trong cuộc sống.',
   'gia đình hòa thuận, an vui, mọi việc thuận buồm xuôi gió.',
@@ -29,7 +45,7 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
  let counter=0,version=0;
  const clean=s=>String(s??'').replace(/[\u0000-\u001f\u007f<>]/g,' ').replace(/\s+/g,' ').trim();
  const text=s=>clean(s).slice(0,180);
- const name=s=>clean(s).slice(0,32);
+ const name=s=>clean(s).normalize('NFC').slice(0,32);
  const emit=()=>{version++;notify('temple.room',publicRoom())};
  function identity(req,res){
   const match=String(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('temple_guest='));
@@ -49,10 +65,22 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
  function tiktokKey(uniqueId){const v=String(uniqueId||'').trim().slice(0,96);return v?'tt:'+v:null}
  function request({id,displayName,comment,source='web'}){
   if(!id||(!id.startsWith('web:')&&!id.startsWith('tt:')))return {ok:false,reason:'invalid-identity'};
-  const body=text(comment);if(!body)return {ok:false,reason:'empty-comment'};
-  const existing=inside.get(id);if(existing){existing.lastSeen=now();return {ok:true,status:'approved'}};
+  const visitorName=name(displayName),key=nameKey(visitorName),body=text(comment);
+  const existing=inside.get(id);
+  if(existing){existing.lastSeen=now();return {ok:true,status:'approved'};}
+  if(visitorName.length<2)return {ok:false,reason:'invalid-name'};
+  if([...inside.values()].some(v=>v.id!==id&&nameKey(v.name)===key))return {ok:false,reason:'name-in-use'};
+  const prior=approved.get(key);
+  if(prior){
+    if(inside.size>=capacity)return {ok:false,reason:'full'};
+    const person={id,name:prior.name,source:source==='tiktok'?'tiktok':'web',
+      group:prior.group,joinedAt:now(),lastSeen:now(),avatar:''};
+    inside.set(id,person);pending.delete(id);emit();
+    return {ok:true,status:'approved',returning:true};
+  }
+  if(!body)return {ok:false,reason:'empty-comment'};
   if(pending.size>=300&&!pending.has(id))return {ok:false,reason:'queue-full'};
-  const p={id,name:name(displayName)||'Phật tử',comment:body,source:source==='tiktok'?'tiktok':'web',at:now()};
+  const p={id,name:visitorName,comment:body,source:source==='tiktok'?'tiktok':'web',at:now()};
   const isNew=!pending.has(id);pending.set(id,p);
   if(isNew)emit();
   return {ok:true,status:'pending',isNew};
@@ -69,13 +97,28 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
   if(!p)return {ok:false,reason:'missing-request'};
   if(inside.size>=capacity)return {ok:false,reason:'full'};
   const person={id,name:p.name,source:p.source,group:group==='internal'?'internal':'tiktok',joinedAt:now(),lastSeen:now(),avatar:''};
-  inside.set(id,person);pending.delete(id);emit();return {ok:true,person};
+  inside.set(id,person);pending.delete(id);
+  const key=nameKey(person.name);
+  if(key&&!approved.has(key)){
+    approved.set(key,{name:person.name,group:person.group,source:person.source,
+      approvedAt:new Date(now()).toISOString()});
+    persistRegistry();
+  }
+  emit();return {ok:true,person};
  }
  function deny(id){const exists=pending.delete(id);if(exists)emit();return exists}
  function remove(id){const ok=inside.delete(String(id));muted.delete(String(id));if(ok)emit();return ok}
  function list(){return [...inside.values()].map(p=>({...p}))}
+ function revokeApprovedName(raw){
+  const key=nameKey(raw);if(!approved.has(key))return false;
+  approved.delete(key);
+  for(const [id,p] of inside)if(nameKey(p.name)===key){
+    inside.delete(id);muted.delete(id);
+  }
+  persistRegistry();emit();return true;
+ }
  function publicRoom(){return {count:inside.size,capacity,pendingCount:pending.size,people:list().map(p=>({name:p.name,group:p.group,source:p.source})),version}}
- function moderation(){return {...publicRoom(),pending:[...pending.values()],inside:list().map(p=>({...p,muted:muted.has(p.id)})),messages:messages.map(m=>({...m})),muted:[...muted]}}
+ function moderation(){return {...publicRoom(),approvedNames:approvedList(),pending:[...pending.values()],inside:list().map(p=>({...p,muted:muted.has(p.id)})),messages:messages.map(m=>({...m})),muted:[...muted]}}
  function status(session){const p=inside.get(session.id);return {name:session.name,status:p?'approved':pending.has(session.id)?'pending':session.lastComment?'not-approved':'new',group:p?.group||null,...publicRoom()}}
  function appendChat({senderId,name:senderName,body,source,role=null,automated=false}){
   const entry={id:'m'+(++counter),senderId,name:senderName,text:body,source,
@@ -127,6 +170,6 @@ function createTempleRoom({notify=()=>{},now=()=>Date.now(),capacity=100}={}){
   if(changed)emit();
  }
  const timer=setInterval(sweep,15000);timer.unref?.();
- return {identity,request,tiktokComment,approve,deny,remove,list,publicRoom,moderation,status,submit,submitAbbot,chat,deleteMessage,setMute,clearChat,sweep,isApproved:id=>inside.has(id),tiktokKey,pending,inside};
+ return {identity,request,tiktokComment,approve,deny,remove,list,publicRoom,moderation,status,submit,submitAbbot,chat,deleteMessage,setMute,clearChat,sweep,revokeApprovedName,approvedList,isApproved:id=>inside.has(id),tiktokKey,pending,inside};
 }
 module.exports={createTempleRoom};
