@@ -157,17 +157,17 @@
     }).join('');
   }
 
-  // 5. Dựng Đạo Tràng 40 Phật Tử Quỳ Lễ Hai Bên Thảm Đỏ (5 Hàng x 4 Cột mỗi bên)
+  // Chỉ dựng nhân vật đã được Trụ trì duyệt. 6 VIP + 94 ghế là 100 người thật tối đa.
   const congregationHall = document.getElementById('congregationHall');
   const HALL_SEAT_COORDS = [];
 
   (function buildHallGrid() {
-    const rows = 5;
-    const colsPerSide = 4;
+    const rows = 10;
+    const colsPerSide = 5;
     for (let r = 0; r < rows; r++) {
       const progress = r / (rows - 1); // 0 (xa) -> 1 (gần)
-      const y = Math.round(1290 + progress * 355); // 1290 -> 1645
-      const scale = +(0.76 + progress * 0.28).toFixed(2);
+      const y = Math.round(1260 + progress * 405); // 1260 -> 1665
+      const scale = +(0.54 + progress * 0.28).toFixed(2);
 
       // Cánh trái thảm đỏ
       const leftInnerX = Math.round(335 - progress * 48); // mép thảm mở rộng dần
@@ -200,9 +200,7 @@
     lastRenderedLeaderboardJson = sig;
 
     // Ưu tiên gắn thẻ tên vào các ghế gần thảm đỏ dễ nhìn nhất
-    const labeledSeatIndices = [
-      3, 4, 11, 12, 19, 20, 27, 28, 35, 36, 2, 5, 10, 13, 18, 21, 26, 29
-    ];
+    const labeledSeatIndices = HALL_SEAT_COORDS.map((_,i)=>i);
     const seatViewerMap = new Map();
     hallViewers.forEach((viewer, idx) => {
       if (idx < labeledSeatIndices.length) {
@@ -225,6 +223,7 @@
         `
         : '';
 
+      if (!viewer) return ''; // Never render a fake devotee in an unoccupied seat.
       return `
         <div
           class="hall-seat"
@@ -472,12 +471,14 @@
     renderIncenseSticks(st.activeIncenseSticks || 9);
 
     const lb = Array.isArray(st.leaderboard) ? st.leaderboard : [];
+    const central=document.getElementById('centralWorshipper');
+    if(central)central.style.display=lb.length?'':'none'; // no virtual worshipper when room is empty
     renderVipCushions(lb);
     renderCongregationHall(lb);
 
     // Tên đặt thủ công được ưu tiên lúc mở sân khấu; sự kiện Live thật vẫn
     // tự cập nhật tên người tương tác sau đó.
-    if (!hasInitializedRealLeader && st.manualDisplayName) {
+    if (!hasInitializedRealLeader && lb.length && st.manualDisplayName) {
       hasInitializedRealLeader = true;
       displayManualName(st.manualDisplayName, st.manualDisplayWish);
       if (nameInput && !nameInput.value.trim()) nameInput.value = st.manualDisplayName;
