@@ -1,0 +1,44 @@
+name: Verify Linh Ung moderated room
+on:
+  push:
+    branches: [feature/linh-ung-approved-room]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Syntax and room state machine
+        run: |
+          node --check server.js
+          node --check temple-room.js
+          node --check public/js/live.js
+          node test-temple-room.js
+      - name: Install Node production dependencies
+        run: npm ci --omit=dev
+      - name: HTTP integration
+        run: node test-temple-http.js
+      - name: Security invariants
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),assert=require('node:assert/strict');
+          const server=fs.readFileSync('server.js','utf8');
+          const live=fs.readFileSync('public/js/live.js','utf8');
+          const page=fs.readFileSync('public/vao-chua.html','utf8');
+          assert(server.includes("app.get('/chandien'"));
+          assert(server.includes("app.get('/trutri'"));
+          assert(server.includes('createTempleRoom'));
+          assert(server.includes('room.tiktokComment'));
+          assert(server.includes("app.post('/api/trutri/decide',requireAdmin"));
+          assert(server.includes("app.get('/api/temple/chat'"));
+          assert(live.includes("if (!viewer) return '';"));
+          assert(page.includes('Không cần'));
+          console.log('PASS: protected stage, administrator, no fake viewer sprites');
+          NODE
