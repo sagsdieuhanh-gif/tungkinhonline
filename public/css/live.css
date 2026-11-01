@@ -1229,3 +1229,14 @@ body.obs-mode .stage-wrapper {
   .dock-grid-2 { gap: 6px; }
   .dock-btn { font-size: 12.5px; padding: 9px 8px; }
 }
+
+/* Names, prayer text, and selections must remain editable/selectable. */
+input, textarea, select, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid #f4c150;
+  outline-offset: 2px;
+}
