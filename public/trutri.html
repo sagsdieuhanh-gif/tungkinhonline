@@ -1,6 +1,6 @@
 <!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Trụ trì · Chùa Linh Ứng</title><style>
-*{box-sizing:border-box}body{margin:0;background:#170e09;color:#f6e3c2;font:14px system-ui,-apple-system,sans-serif;padding:20px}main{max-width:1100px;margin:auto}h1,h2{color:#f6cc7b}h1{font:700 30px Georgia,serif}h2{font:700 19px Georgia,serif}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{background:#28180f;border:1px solid #9b6b39;border-radius:15px;padding:17px;margin-bottom:18px}.person,.msg{border-bottom:1px solid #ffffff18;padding:10px 2px}.name{font-weight:700}.hint{font-size:12px;color:#c8ac7f}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}select,button{border:1px solid #997142;background:#382419;color:#ffdc9d;border-radius:8px;padding:9px;font:inherit;cursor:pointer}button.approve{background:#35653c;color:#fff;border-color:#619f69}button.danger{background:#63271d;color:white}button:disabled{opacity:.5}.count{background:#50341c;border-radius:999px;padding:7px 12px}.text{margin:6px 0;color:#e4c9a6;white-space:pre-wrap;overflow-wrap:anywhere}.status{color:#ffd98a;margin:12px 0}a{color:#f7cb7c}#pending,#people,#chat{max-height:520px;overflow-y:auto}.buttonline{display:flex;flex-wrap:wrap;gap:8px;margin-top:7px}
+*{box-sizing:border-box}body{margin:0;background:#170e09;color:#f6e3c2;font:14px system-ui,-apple-system,sans-serif;padding:20px}main{max-width:1100px;margin:auto}h1,h2{color:#f6cc7b}h1{font:700 30px Georgia,serif}h2{font:700 19px Georgia,serif}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{background:#28180f;border:1px solid #9b6b39;border-radius:15px;padding:17px;margin-bottom:18px}.person,.msg{border-bottom:1px solid #ffffff18;padding:10px 2px}.name{font-weight:700}.hint{font-size:12px;color:#c8ac7f}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}select,button,input{border:1px solid #997142;background:#382419;color:#ffdc9d;border-radius:8px;padding:9px;font:inherit}button{cursor:pointer}input[type=number]{width:min(200px,100%);font-size:16px}button.gold{background:#dbad58;color:#261302;font-weight:800;border-color:#f6d890}#locAdminStatus{line-height:1.7;color:#f4dba8}button.approve{background:#35653c;color:#fff;border-color:#619f69}button.danger{background:#63271d;color:white}button:disabled{opacity:.5}.count{background:#50341c;border-radius:999px;padding:7px 12px}.text{margin:6px 0;color:#e4c9a6;white-space:pre-wrap;overflow-wrap:anywhere}.status{color:#ffd98a;margin:12px 0}a{color:#f7cb7c}#pending,#people,#chat{max-height:520px;overflow-y:auto}.buttonline{display:flex;flex-wrap:wrap;gap:8px;margin-top:7px}
 @media(max-width:750px){.grid{grid-template-columns:1fr}}
 </style></head><body><main><h1>🙏 Trụ trì · Chùa Linh Ứng Online</h1>
 <p class="hint">Bảng duyệt riêng, phải đăng nhập mật khẩu quản trị. Mọi bình luận web và TikTok đưa vào hàng chờ, không ai tự vào chùa.</p>
@@ -8,11 +8,20 @@
 <div class="status" id="info">Đang kết nối…</div><div class="grid">
 <section class="card"><h2>⏳ Yêu cầu chờ duyệt <span class="count" id="nPending">0</span></h2><div id="pending"></div></section>
 <section class="card"><h2>🪷 Đang trong chánh điện <span class="count" id="nPeople">0 / 100</span></h2><div id="people"></div></section>
-</div><section class="card"><h2>💬 Quản lý chat <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn mới nhất trên web và TikTok LIVE. Trụ trì xóa tin, tắt/mở chat hoặc xóa toàn bộ.</p><button class="danger" type="button" id="clearBtn">XÓA TOÀN BỘ TIN NHẮN</button><div id="chat"></div></section>
+</div>
+<section class="card" id="locAdmin">
+<h2>🧧 PHÁT LỘC MAY MẮN CHO CẢ CHÁNH ĐIỆN</h2>
+<p class="hint">Trụ trì nhập tổng số lộc ảo rồi bấm TẶNG LỘC. Người đã được duyệt mới có thể mở lộc một lần trong mỗi đợt. Số lộc nhận ngẫu nhiên và dùng để dâng sen, thắp hương, thỉnh chuông… Không phải tiền thật hoặc xu TikTok.</p>
+<div class="row"><label for="locAdminTotal">Tổng quỹ lộc ảo</label><input id="locAdminTotal" type="number" min="1" max="100000" step="1" value="500" inputmode="numeric">
+<button id="locAdminOpen" class="gold" type="button">🧧 TẶNG LỘC CHO CẢ PHÒNG</button><button type="button" id="locAdminClose" class="danger">KẾT THÚC ĐỢT LỘC</button></div>
+<div class="status" id="locAdminStatus" role="status" aria-live="polite">Đang tải quỹ lộc...</div>
+<p class="hint">Lộc còn dư sẽ không tự cấp cho ai. Lộc người xem đã nhận có thể tiếp tục sử dụng trong phiên máy chủ hiện tại.</p>
+</section>
+<section class="card"><h2>💬 Quản lý chat <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn mới nhất trên web và TikTok LIVE. Trụ trì xóa tin, tắt/mở chat hoặc xóa toàn bộ.</p><button class="danger" type="button" id="clearBtn">XÓA TOÀN BỘ TIN NHẮN</button><div id="chat"></div></section>
 </main><script>
 'use strict';
 const $=id=>document.getElementById(id);let busy=false,last='';
-async function api(p,d){const o={credentials:'same-origin',cache:'no-store'};if(d!==undefined){o.method='POST';o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(d)}const r=await fetch(p,o);if(r.status===401){location.href='/login';throw Error('Cần đăng nhập Trụ trì')}const j=await r.json().catch(()=>({error:'Lỗi máy chủ'}));if(!r.ok)throw Error(j.error||'HTTP '+r.status);return j}
+async function api(p,d){const o={credentials:'same-origin',cache:'no-store'};if(d!==undefined){o.method='POST';o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(d)}const r=await fetch(p,o);if(r.status===401){location.href='/login?next=%2Ftrutri';throw Error('Cần đăng nhập Trụ trì')}const j=await r.json().catch(()=>({error:'Lỗi máy chủ'}));if(!r.ok)throw Error(j.error||'HTTP '+r.status);return j}
 const btn=(text,cls,fn)=>{const b=document.createElement('button');b.textContent=text;b.className=cls;b.type='button';b.onclick=fn;return b};
 async function send(url,params){try{busy=true;await api(url,params);await load()}catch(e){$('info').textContent=e.message}finally{busy=false}}
 function line(parent,n,desc,buttons=[]){const el=document.createElement('div');el.className='person';const name=document.createElement('div');name.className='name';name.textContent=n;const body=document.createElement('div');body.className='text';body.textContent=desc;const acts=document.createElement('div');acts.className='buttonline';buttons.forEach(x=>acts.append(x));el.append(name,body,acts);parent.append(el)}
@@ -32,6 +41,35 @@ async function load(){
  line(chat,m.name+' · '+(m.source==='tiktok'?'TikTok':'Web'),m.text,[btn('Xóa tin','danger',()=>send('/api/trutri/chat/delete',{id:m.id}))])}
  if(!s.messages.length)chat.textContent='Chưa có tin nhắn.';
  }catch(e){$('info').textContent=e.message}}
+async function refreshLocAdmin(){
+ try{
+  const s=await api('/api/trutri/loc'),e=s.envelope,el=$('locAdminStatus');
+  el.style.color='#f4dba8';
+  el.textContent=!e?'Chưa có đợt phát lộc. Nhập số lộc và bấm TẶNG LỘC.'
+   :(e.active?'🟢 ĐANG PHÁT LỘC':'⚪ ĐÃ KẾT THÚC')+
+    ' · Tổng '+e.total.toLocaleString('vi-VN')+
+    ' · Còn '+e.remaining.toLocaleString('vi-VN')+
+    ' · Đã mở '+e.claimed+' người.';
+ }catch(err){$('locAdminStatus').textContent=err.message}
+}
+$('locAdminOpen').onclick=async()=>{
+ const amount=Number($('locAdminTotal').value);
+ if(!Number.isSafeInteger(amount)||amount<1||amount>100000){
+  $('locAdminStatus').textContent='Chỉ nhập số lộc ảo từ 1 đến 100.000';return;
+ }
+ const b=$('locAdminOpen');b.disabled=true;
+ try{const x=await api('/api/trutri/loc/open',{total:amount});await refreshLocAdmin()}
+ catch(e){$('locAdminStatus').textContent='❌ '+e.message}
+ finally{b.disabled=false}
+};
+$('locAdminClose').onclick=async()=>{
+ if(!confirm('Kết thúc đợt phát lộc này? Phần chưa được mở sẽ không phát nữa.'))return;
+ const b=$('locAdminClose');b.disabled=true;
+ try{await api('/api/trutri/loc/close',{});await refreshLocAdmin()}
+ catch(e){$('locAdminStatus').textContent='❌ '+e.message}
+ finally{b.disabled=false}
+};
 $('clearBtn').onclick=()=>{if(confirm('Xóa toàn bộ tin nhắn đang lưu trên máy chủ?'))send('/api/trutri/chat/clear',{})};
+refreshLocAdmin();setInterval(refreshLocAdmin,4500);
 setInterval(load,3500);load();
 </script></body></html>
