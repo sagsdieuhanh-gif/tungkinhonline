@@ -19,8 +19,11 @@ jobs:
         run: |
           node --check server.js
           node --check temple-room.js
+          node --check temple-loc.js
           node --check public/js/live.js
+          node --check test-temple-loc.js
           node test-temple-room.js
+          node test-temple-loc.js
       - name: Install Node production dependencies
         run: npm ci --omit=dev
       - name: HTTP integration
