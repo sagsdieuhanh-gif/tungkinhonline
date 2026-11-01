@@ -88,7 +88,10 @@ $('reloadAbbotPreview')?.addEventListener('click',()=>{
   const frame=$('abbotTemplePreview');
   if(frame)frame.src='/obs?preview='+Date.now();
 });
-async function api(p,d){const o={credentials:'same-origin',cache:'no-store'};if(d!==undefined){o.method='POST';o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(d)}const r=await fetch(p,o);if(r.status===401){location.href='/login?next=%2Ftrutri';throw Error('Cần đăng nhập Trụ trì')}const j=await r.json().catch(()=>({error:'Lỗi máy chủ'}));if(!r.ok)throw Error(j.error||'HTTP '+r.status);return j}
+async function api(p,d){const o={credentials:'same-origin',cache:'no-store'};if(d!==undefined){o.method='POST';o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(d)}const r=await fetch(p,o);if(r.status===401){location.href='/login?next=%2Ftrutri';throw Error('Cần đăng nhập Trụ trì')}const ct=r.headers.get('content-type')||'';
+ if(!ct.includes('application/json'))throw Error('Trang quản trị đã đổi phiên bản. Vui lòng tải lại (Ctrl+F5) và đăng nhập Trụ trì.');
+ const j=await r.json().catch(()=>({error:'Không đọc được phản hồi của máy chủ. Hãy tải lại trang.'}));
+ if(!r.ok)throw Error(j.error||'HTTP '+r.status);return j}
 const btn=(text,cls,fn)=>{const b=document.createElement('button');b.textContent=text;b.className=cls;b.type='button';b.onclick=fn;return b};
 async function send(url,params){try{busy=true;await api(url,params);await load()}catch(e){$('info').textContent=e.message}finally{busy=false}}
 function line(parent,n,desc,buttons=[]){const el=document.createElement('div');el.className='person';const name=document.createElement('div');name.className='name';name.textContent=n;const body=document.createElement('div');body.className='text';body.textContent=desc;const acts=document.createElement('div');acts.className='buttonline';buttons.forEach(x=>acts.append(x));el.append(name,body,acts);parent.append(el)}
