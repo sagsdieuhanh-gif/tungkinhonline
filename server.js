@@ -1090,6 +1090,93 @@ async function handleRpcCall(method, params = {}) {
   }
 }
 
+
+// The online voice is synthesized remotely; the 512 MB Render process keeps
+// only a bounded number of temporary MP3s, and never loads a TTS model.
+const EDGE_VOICES = {
+  female: 'vi-VN-HoaiMyNeural',
+  male: 'vi-VN-NamMinhNeural'
+};
+const edgeInflight = new Map();
+const EDGE_MAX_LENGTH = 700;
+let edgeRunning = 0;
+
+function normalizedNeuralVoice(input) {
+  return input === EDGE_VOICES.male || input === 'male'
+    ? EDGE_VOICES.male : EDGE_VOICES.female;
+}
+function trimNeuralCache() {
+  try {
+    const items = fs.readdirSync(TTS_CACHE_DIR)
+      .filter(name => /^edge-[a-f0-9]{64}\.mp3$/.test(name))
+      .map(name => ({ name, time: fs.statSync(path.join(TTS_CACHE_DIR, name)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+    for (const item of items.slice(32)) {
+      try { fs.unlinkSync(path.join(TTS_CACHE_DIR, item.name)); } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+const onlineTts = {
+  getStatus: () => ({
+    ready: true,
+    status: 'edge_online_configured',
+    engine: 'Edge Neural TTS (unofficial, requires external network)',
+    voice: EDGE_VOICES.female,
+    voices: [EDGE_VOICES.female, EDGE_VOICES.male],
+    external: true
+  }),
+  async synthesize(rawText, requestedVoice) {
+    const text = String(rawText || '').trim();
+    if (!text || text.length > EDGE_MAX_LENGTH) {
+      return { ok: false, error: 'Nội dung đọc phải từ 1 đến 700 ký tự' };
+    }
+    const voice = normalizedNeuralVoice(requestedVoice);
+    const digest = crypto.createHash('sha256').update(voice + '\n' + text).digest('hex');
+    const filename = 'edge-' + digest + '.mp3';
+    const filepath = path.join(TTS_CACHE_DIR, filename);
+    const url = '/tts-cache/' + filename;
+    try {
+      if (fs.existsSync(filepath) && fs.statSync(filepath).size > 300) {
+        return { ok: true, url, voice, engine: 'edge_online' };
+      }
+    } catch (_) {}
+    if (edgeInflight.has(digest)) return edgeInflight.get(digest);
+    if (edgeRunning >= 2) return { ok: false, error: 'Giọng đọc đang bận. Hãy thử lại.' };
+    edgeRunning++;
+    const task = (async () => {
+      try {
+        // Lazily require the client: a provider failure must not stop TikTok Live.
+        const { EdgeTTS } = require('node-edge-tts');
+        const engine = new EdgeTTS({
+          voice,
+          lang: 'vi-VN',
+          rate: '-8%',
+          pitch: '0Hz',
+          volume: 'default',
+          outputFormat: 'audio-24khz-48kbitrate-mono-mp3',
+          timeout: 15000
+        });
+        await engine.ttsPromise(text, filepath);
+        const stats = fs.statSync(filepath);
+        if (stats.size <= 300 || stats.size > 1_800_000) throw new Error('Tệp âm thanh không hợp lệ');
+        trimNeuralCache();
+        return { ok: true, url, voice, engine: 'edge_online' };
+      } catch (err) {
+        try { fs.unlinkSync(filepath); } catch (_) {}
+        const error = String(err?.message || err).slice(0,180);
+        console.warn('[Edge Neural TTS]', error);
+        return { ok: false, error: 'Giọng Neural online hiện không khả dụng: ' + error };
+      } finally {
+        edgeRunning--;
+        edgeInflight.delete(digest);
+      }
+    })();
+    edgeInflight.set(digest, task);
+    return task;
+  }
+};
+
 // ============================================================================
 // 8. EXPRESS + WEBSOCKET SERVER
 // ============================================================================
@@ -1192,15 +1279,40 @@ app.post('/rpc', async (req, res) => {
   }
 });
 
-// ZeroTTS HTTP Endpoint (Mai Chi default)
-app.all('/api/tts', requireAdmin, async (req, res) => {
-  const text = (req.body?.text || req.query?.text || '').trim();
-  const voice = (req.body?.voice || req.query?.voice || state.settings.ttsVoice || 'maichi').trim();
-  if (!text) {
-    return res.status(400).json({ ok: false, error: 'Thiếu nội dung text cần đọc' });
+// Administrator may synthesize arbitrary sanitized text; public clients can
+// synthesize only server-generated event texts or the fixed demonstration line.
+app.post('/api/tts', requireAdmin, async (req, res) => {
+  const text = String(req.body?.text || '').trim();
+  if (!text || text.length > EDGE_MAX_LENGTH) {
+    return res.status(400).json({ ok: false, error: 'Nội dung không hợp lệ' });
   }
-  const result = await zeroTts.synthesize(text, voice);
-  res.json(result);
+  const result = await zeroTts.synthesize(text, req.body?.voice);
+  res.status(result.ok ? 200 : 503).json(result);
+});
+
+app.get('/api/tts/event/:id', async (req, res) => {
+  const evt = state.recentEvents.find(x => x.id === req.params.id);
+  if (!evt || !evt.ttsText) return res.status(404).send('Không tìm thấy câu đọc');
+  const result = await zeroTts.synthesize(evt.ttsText, req.query.voice);
+  if (!result.ok) return res.status(503).json(result);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.sendFile(path.join(TTS_CACHE_DIR, path.basename(result.url)));
+});
+
+const demoVoiceLimit = new Map();
+app.get('/api/tts/demo', async (req, res) => {
+  const source = req.ip || 'unknown';
+  const now = Date.now();
+  const record = demoVoiceLimit.get(source) || { count: 0, starts: now };
+  if (now - record.starts > 3600000) { record.count = 0; record.starts = now; }
+  if (record.count >= 8) return res.status(429).send('Đã vượt số lượt đọc thử trong một giờ');
+  record.count++;
+  demoVoiceLimit.set(source, record);
+  const demo = 'Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ thập phương. Nguyện cầu bình an và hạnh phúc.';
+  const result = await zeroTts.synthesize(demo, req.query.voice);
+  if (!result.ok) return res.status(503).json(result);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.sendFile(path.join(TTS_CACHE_DIR, path.basename(result.url)));
 });
 
 app.get('/api/state', (_req, res) => {
@@ -1277,10 +1389,7 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-const zeroTts = process.env.ENABLE_TTS === '1' ? new ZeroTTSManager() : {
-  getStatus: () => ({ ready: false, status: 'disabled_on_free_plan', voice: 'maichi' }),
-  synthesize: async () => ({ ok: false, error: 'ZeroTTS chưa được bật trên gói Render Free (RAM 512 MB)' })
-};
+const zeroTts = process.env.ENABLE_TTS === '1' ? new ZeroTTSManager() : onlineTts;
 
 server.listen(PORT, () => {
   console.log(`============================================================`);
