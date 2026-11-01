@@ -25,33 +25,52 @@
 .abbot-chat-form input{flex:1;min-width:180px;font-size:16px;background:#160e0a;color:#ffe9bc}
 .abbot-chat-note{font-size:12px;color:#ddc6a5;line-height:1.5}
 
-/* Admin chat can be dragged anywhere, or collapsed to a small chat bubble. */
-.admin-chat-window{position:fixed;z-index:9000;right:12px;bottom:68px;
- width:min(450px,calc(100vw - 24px));height:min(570px,74dvh);
- display:flex;flex-direction:column;background:#28180f;
- border:2px solid #f3ca78;border-radius:15px;padding:12px;
- box-shadow:0 12px 43px #000c;overflow:hidden}
-.admin-chat-window.chat-collapsed{display:none!important}
-.admin-chat-handle{display:flex;align-items:center;justify-content:space-between;
- gap:8px;border-radius:10px;padding:10px;
- color:#ffe6af;background:#5b351a;cursor:grab;touch-action:none;user-select:none}
-.admin-chat-handle.dragging{cursor:grabbing}
-.admin-chat-handle button{padding:5px 12px}
-.admin-chat-window #chat{flex:1;overflow-y:auto;max-height:none;min-height:60px}
-.admin-chat-window .abbot-chat-form{flex:none}
-.admin-chat-toggle{position:fixed;z-index:9100;right:12px;
- bottom:max(9px,env(safe-area-inset-bottom));border:1.5px solid #ffda88;
- background:#61401c;color:#fff3ce;padding:12px 16px;font-weight:800;
- box-shadow:0 5px 20px #000a;border-radius:12px}
-.admin-chat-window .abbot-chat-item{margin:7px 0}
+/* One integrated Trụ trì workspace, no floating/hidden abbot chat. */
+.admin-workspace{grid-template-columns:minmax(235px,345px) minmax(0,1fr);gap:16px}
+body{padding:14px}
+main{max-width:1280px}
+.abbot-preview{position:sticky;top:12px}
+.abbot-preview iframe{width:100%;max-height:72dvh}
+.abbot-toolbar-header{border:1px solid #94612f;border-radius:14px;background:#28180f;padding:12px 15px;margin-bottom:10px}
+.abbot-toolbar-header strong{font-size:15px;color:#ffe09b}
+.abbot-toolbar-header .status{margin:7px 0 0;font-size:12px}
+.abbot-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;position:sticky;top:0;z-index:10;padding:6px 0 10px;background:#170e09}
+.abbot-tab{border:1px solid #7a5634;border-radius:11px;background:#39261a;color:#e2c18d;padding:12px 5px;min-height:49px;font-size:13px;font-weight:800;text-align:center}
+.abbot-tab.is-active{background:linear-gradient(130deg,#f4dca5,#c39143);color:#301808;border-color:#ffe9b1;box-shadow:0 4px 15px #0007}
+.abbot-tab:focus-visible{outline:3px solid #fff1cd;outline-offset:2px}
+.abbot-tab-panel[hidden]{display:none!important}
+.abbot-tab-panel>.card{margin:0 0 12px}
+.admin-chat-panel{position:relative;width:100%;background:#28180f;border:1.5px solid #dfb76b;border-radius:14px;padding:16px;box-shadow:none;overflow:visible}
+.admin-chat-panel .abbot-chat-form{display:flex;gap:8px;margin:12px 0;align-items:stretch}
+.admin-chat-panel .abbot-chat-form input{flex:1;min-width:0;width:100%;border:1px solid #f0c271;padding:12px;font-size:16px}
+.admin-chat-panel .abbot-chat-form button{flex:none;min-width:125px}
+.admin-chat-panel .abbot-chat-note{margin:8px 0 10px}
+.admin-chat-panel #chat{max-height:min(48dvh,490px);min-height:180px;overflow-y:auto;padding:4px 3px;overscroll-behavior:contain}
+.abbot-chat-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:7px 0;font-size:11px;color:#d2af75;flex-wrap:wrap}
+.abbot-chat-footer button{padding:7px 10px;font-size:11px}
+.abbot-chat-item .name{font-weight:900}
+#abbotPanelControls iframe{width:100%;min-height:680px;max-height:85dvh;border:1px solid #865c35;border-radius:10px;background:#160b06}
+@media(max-width:920px){.admin-workspace{grid-template-columns:minmax(195px,260px) minmax(0,1fr);gap:12px}}
 @media(max-width:750px){
- .admin-chat-window{height:min(510px,66dvh);width:calc(100vw - 20px)}
- .admin-chat-window .abbot-chat-form input{min-width:0}
- .admin-chat-window .abbot-chat-form{flex-wrap:nowrap}
+ body{padding:9px}
+ .admin-workspace{grid-template-columns:1fr;gap:10px}
+ .abbot-preview{position:relative;top:auto;display:grid;grid-template-columns:min(35vw,165px) 1fr;gap:8px;padding:10px}
+ .abbot-preview h2{grid-column:1/-1;margin:0;font-size:16px}
+ .abbot-preview>div:first-of-type{grid-column:1;grid-row:2 / span 2;width:100%;min-width:0}
+ .abbot-preview iframe{width:100%;height:min(36dvh,270px);max-height:270px}
+ .abbot-preview .hint{grid-column:2;grid-row:2;margin:0;font-size:11px}
+ .abbot-preview-actions{grid-column:2;grid-row:3;margin-top:4px}
+ .abbot-toolbar-header{padding:10px}
+ .abbot-tabs{top:0}
+ .abbot-tab{padding:10px 3px;min-height:47px;font-size:11px;line-height:1.3}
+ .admin-chat-panel{padding:13px 10px}
+ .admin-chat-panel .abbot-chat-form{gap:6px}
+ .admin-chat-panel .abbot-chat-form button{min-width:85px;font-size:11px;padding:10px 7px}
+ .admin-chat-panel #chat{max-height:48dvh}
 }
 </style></head><body><main><div class="abbot-identity">👑 TRỤ TRÌ <span>· ĐÃ XÁC THỰC</span></div><h1>🙏 Trụ trì · SAGS CXR Tam Bảo</h1>
 <p class="hint">Chánh điện mở cửa tự do: người xem nhập tên là vào ngay, không phải chờ duyệt. Trụ trì có thể xem người đang có mặt, mời ra, khóa chat, phát lộc và gửi lời chúc.</p>
-<p class="row"><a href="/admin">Bảng điều khiển nghi lễ / đọc kinh</a><a href="/obs" target="_blank" rel="noopener">Màn hình OBS</a><a href="/" target="_blank" rel="noopener">Trang xin vào</a></p>
+<p class="hint">Một nơi để xem chánh điện, chat, quản lý người tham gia, phát lộc và điều khiển nghi lễ. Chọn chức năng ở các thẻ bên phải.</p>
 <div class="admin-workspace">
   <section class="abbot-preview" aria-label="Chánh điện trực tiếp">
     <h2>🪷 Chánh điện trực tiếp</h2>
@@ -63,27 +82,64 @@
     </div>
   </section>
   <div class="admin-tools">
-<div class="status" id="info">Đang kết nối…</div><div class="grid">
-<section class="card"><h2>🪷 Tự động vào chánh điện <span class="count" id="nPending">0</span></h2><p class="hint">Không cần Trụ trì duyệt. Mọi người nhập pháp danh và tham gia ngay. Bảng này chỉ giữ lại danh sách yêu cầu cũ nếu có.</p><div id="pending"></div></section>
-<section class="card"><h2>🪷 Người đang trong chánh điện <span class="count" id="nPeople">0 / 100</span></h2><div id="people"></div></section>
-</div>
-<section class="card" id="locAdmin">
+  <div class="abbot-toolbar-header">
+    <strong>👑 TRUNG TÂM ĐIỀU HÀNH TRỤ TRÌ</strong>
+    <div class="status" id="info" role="status">Đang kết nối chánh điện…</div>
+  </div>
+  <nav class="abbot-tabs" role="tablist" aria-label="Chức năng Trụ trì">
+    <button type="button" id="abbotTabChat" class="abbot-tab is-active" data-abbot-tab="chat" role="tab" aria-controls="abbotPanelChat" aria-selected="true">💬 Chat chung</button>
+    <button type="button" id="abbotTabPeople" class="abbot-tab" data-abbot-tab="people" role="tab" aria-controls="abbotPanelPeople" aria-selected="false">👥 Người tham gia</button>
+    <button type="button" id="abbotTabLoc" class="abbot-tab" data-abbot-tab="loc" role="tab" aria-controls="abbotPanelLoc" aria-selected="false">🧧 Phát lộc</button>
+    <button type="button" id="abbotTabControls" class="abbot-tab" data-abbot-tab="controls" role="tab" aria-controls="abbotPanelControls" aria-selected="false">🎛️ Nghi lễ</button>
+  </nav>
+  <div id="abbotPanelChat" class="abbot-tab-panel is-active" role="tabpanel" aria-labelledby="abbotTabChat">
+    <section class="card admin-chat-panel" id="abbotChatDock"><h2>👑 Chat chung với vai trò Trụ trì <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn của Trụ trì được tô vàng nổi bật. Người xem và Trụ trì cùng chat trong chánh điện. Tin nhắn Trụ trì có khung vàng; người xem được chúc tự động bằng tên.</p><form class="abbot-chat-form" id="abbotChatForm"><input id="abbotChatText" type="text" maxlength="180" required autocomplete="off" placeholder="👑 Trụ trì gửi lời chào hoặc lời chúc..." aria-label="Tin nhắn Trụ trì"><button type="submit" class="gold" id="abbotChatSend">👑 GỬI TIN TRỤ TRÌ</button></form><p class="abbot-chat-note" id="abbotChatNotice">Tin nhắn gửi bằng tài khoản quản trị có nhãn TRỤ TRÌ · ĐÃ XÁC THỰC. Lời chúc tự động cũng có nhãn riêng.</p><div class="abbot-chat-footer"><span>🪷 Nội dung chat chung cập nhật tự động</span><button class="danger" type="button" id="clearBtn">Xóa lịch sử chat</button></div><div id="chat"></div></section>
+  </div>
+  <div id="abbotPanelPeople" class="abbot-tab-panel" role="tabpanel" aria-labelledby="abbotTabPeople" hidden>
+    <section class="card"><h2>🪷 Người đang trong chánh điện <span class="count" id="nPeople">0 / 100</span></h2><p class="hint">Những người thật đang ở chánh điện. Trụ trì có thể tắt chat hoặc mời ra ngay tại đây.</p><div id="people"></div></section>
+  </div>
+  <div id="abbotPanelLoc" class="abbot-tab-panel" role="tabpanel" aria-labelledby="abbotTabLoc" hidden>
+    <section class="card" id="locAdmin">
 <h2>🧧 PHÁT LỘC MAY MẮN CHO CẢ CHÁNH ĐIỆN</h2>
-<p class="hint">Trụ trì nhập tổng số lộc ảo rồi bấm TẶNG LỘC. Người đã được duyệt mới có thể mở lộc một lần trong mỗi đợt. Số lộc nhận ngẫu nhiên và dùng để dâng sen, thắp hương, thỉnh chuông… Không phải tiền thật hoặc xu TikTok.</p>
+<p class="hint">Trụ trì nhập tổng số lộc ảo rồi bấm TẶNG LỘC. Người đang ở chánh điện có thể mở lộc một lần trong mỗi đợt. Số lộc nhận ngẫu nhiên và dùng để dâng sen, thắp hương, thỉnh chuông… Không phải tiền thật hoặc xu TikTok.</p>
 <div class="row"><label for="locAdminTotal">Tổng quỹ lộc ảo</label><input id="locAdminTotal" type="number" min="1" max="100000" step="1" value="500" inputmode="numeric">
 <button id="locAdminOpen" class="gold" type="button">🧧 TẶNG LỘC CHO CẢ PHÒNG</button><button type="button" id="locAdminClose" class="danger">KẾT THÚC ĐỢT LỘC</button></div>
 <div class="status" id="locAdminStatus" role="status" aria-live="polite">Đang tải quỹ lộc...</div>
 <p class="hint">Lộc còn dư sẽ không tự cấp cho ai. Lộc người xem đã nhận có thể tiếp tục sử dụng trong phiên máy chủ hiện tại.</p>
 </section>
-<section class="card admin-chat-window chat-collapsed" id="abbotChatDock"><div class="admin-chat-handle" id="abbotChatHandle"><span>👑 💬 Chat Trụ trì · Kéo để di chuyển</span><button type="button" id="abbotChatClose">−</button></div><h2>💬 Quản lý chat <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn của Trụ trì được tô vàng nổi bật. Mỗi lời nhắn của khách đã duyệt sẽ được hệ thống gửi một câu chúc có tên người đó.</p><form class="abbot-chat-form" id="abbotChatForm"><input id="abbotChatText" type="text" maxlength="180" required autocomplete="off" placeholder="👑 Trụ trì gửi lời chào hoặc lời chúc..." aria-label="Tin nhắn Trụ trì"><button type="submit" class="gold" id="abbotChatSend">👑 GỬI TIN TRỤ TRÌ</button></form><p class="abbot-chat-note" id="abbotChatNotice">Tin nhắn gửi bằng tài khoản quản trị có nhãn TRỤ TRÌ · ĐÃ XÁC THỰC. Lời chúc tự động cũng có nhãn riêng.</p><button class="danger" type="button" id="clearBtn">XÓA TOÀN BỘ TIN NHẮN</button><div id="chat"></div></section>
+  </div>
+  <div id="abbotPanelControls" class="abbot-tab-panel" role="tabpanel" aria-labelledby="abbotTabControls" hidden>
+    <section class="card">
+      <h2>🎛️ Điều khiển nghi lễ, TikTok và âm thanh</h2>
+      <p class="hint">Các chức năng điều khiển nâng cao được tích hợp ngay trong bảng này, chỉ tải khi bạn chọn mục Nghi lễ.</p>
+      <iframe id="abbotControlsFrame" title="Bảng điều khiển nghi lễ SAGS CXR Tam Bảo" loading="lazy" referrerpolicy="same-origin"></iframe>
+    </section>
   </div>
 </div>
-<button type="button" class="admin-chat-toggle" id="abbotChatToggle" aria-expanded="false">💬 Mở phòng chat</button>
-</main><script src="/js/chat-dock.js"></script><script>
+</main><script>
 'use strict';
 const $=id=>document.getElementById(id);let busy=false,last='';
-window.setupMovableTempleChat({panelId:'abbotChatDock',headerId:'abbotChatHandle',
- toggleId:'abbotChatToggle',closeId:'abbotChatClose',storeKey:'abbot'});
+// Tất cả chức năng Trụ trì nằm trong một giao diện, Chat luôn mở đầu.
+function showAbbotTab(tab){
+  const allowed=['chat','people','loc','controls'];
+  if(!allowed.includes(tab))return;
+  for(const name of allowed){
+    const button=document.querySelector('[data-abbot-tab="'+name+'"]');
+    const panel=document.getElementById('abbotPanel'+name[0].toUpperCase()+name.slice(1));
+    const active=name===tab;
+    if(button){button.classList.toggle('is-active',active);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1}
+    if(panel){panel.hidden=!active;panel.classList.toggle('is-active',active)}
+  }
+  if(tab==='controls'){
+    const iframe=$('abbotControlsFrame');
+    if(iframe&&!iframe.getAttribute('src'))iframe.src='/admin';
+  }
+  if(tab==='loc')refreshLocAdmin();
+  if(tab==='chat'){last='';load()}
+}
+document.querySelectorAll('[data-abbot-tab]').forEach(button=>{
+  button.addEventListener('click',()=>showAbbotTab(button.dataset.abbotTab));
+});
 $('reloadAbbotPreview')?.addEventListener('click',()=>{
   const frame=$('abbotTemplePreview');
   if(frame)frame.src='/obs?preview='+Date.now();
@@ -97,13 +153,8 @@ async function send(url,params){try{busy=true;await api(url,params);await load()
 function line(parent,n,desc,buttons=[]){const el=document.createElement('div');el.className='person';const name=document.createElement('div');name.className='name';name.textContent=n;const body=document.createElement('div');body.className='text';body.textContent=desc;const acts=document.createElement('div');acts.className='buttonline';buttons.forEach(x=>acts.append(x));el.append(name,body,acts);parent.append(el)}
 async function load(){
  if(busy)return;try{const s=await api('/api/trutri/room');const sig=JSON.stringify([s.version,s.pending.length,s.inside.length,s.messages.length]);if(sig===last)return;last=sig;
- $('nPending').textContent=s.pending.length;$('nPeople').textContent=s.inside.length+' / '+s.capacity;$('nChat').textContent=s.messages.length+' tin';
+ $('nPeople').textContent=s.inside.length+' / '+s.capacity;$('nChat').textContent=s.messages.length+' tin';
  $('info').textContent='Chánh điện mở tự do · '+s.inside.length+' người thật đang có mặt · không cần duyệt.';
- const waiting=$('pending');waiting.replaceChildren();
- for(const p of s.pending){const sel=document.createElement('select');for(const [v,t] of [['internal','NỘI BỘ'],['tiktok','KHÁCH TIKTOK']]){const op=document.createElement('option');op.value=v;op.textContent=t;sel.append(op)}
- sel.value=p.source==='web'?'internal':'tiktok';
- line(waiting,p.name+' · '+(p.source==='web'?'Web':'TikTok'),p.comment,[sel,btn('✓ DUYỆT','approve',()=>send('/api/trutri/decide',{id:p.id,allow:true,group:sel.value})),btn('Từ chối','danger',()=>send('/api/trutri/decide',{id:p.id,allow:false}))])}
- if(!s.pending.length)waiting.textContent='Chưa có ai chờ.';
  const people=$('people');people.replaceChildren();for(const p of s.inside){
  line(people,p.name+' · '+(p.group==='internal'?'NỘI BỘ':'TIKTOK'),p.source==='web'?'Vào từ website':'Vào từ TikTok',[btn(p.muted?'Mở lại chat':'Tắt chat','',()=>send('/api/trutri/mute',{id:p.id,muted:!p.muted})),btn('Mời ra','danger',()=>send('/api/trutri/remove',{id:p.id}))])}
  if(!s.inside.length)people.textContent='Chưa có người tham gia.';
