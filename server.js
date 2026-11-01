@@ -305,7 +305,8 @@ state.settings.autoSim=false; // never create fake followers.
 const room=createTempleRoom({notify:(method,params)=>{
   broadcastNotification(method,params);
   if(method==='temple.chat')broadcastNotification('chat.message',{
-    id:params.id,name:params.name,text:params.text,source:params.source,timestamp:params.at
+    id:params.id,name:params.name,text:params.text,source:params.source,
+    role:params.role||null,automated:Boolean(params.automated),timestamp:params.at
   });
   if(method==='temple.chat-sync')broadcastNotification('chat.sync',(params.messages||[]).map(m=>({
     id:m.id,name:m.name,text:m.text,source:m.source,timestamp:m.at
@@ -1549,6 +1550,13 @@ app.post('/api/trutri/remove',requireAdmin,guestOrigin,(req,res)=>{
  const ok=room.remove(req.body?.id);broadcastNotification('temple.state',getPublicState());res.json({ok});
 });
 app.post('/api/trutri/mute',requireAdmin,guestOrigin,(req,res)=>res.json({ok:room.setMute(req.body?.id,Boolean(req.body?.muted))}));
+app.post('/api/trutri/chat/send',requireAdmin,guestOrigin,(req,res)=>{
+ const content=cleanChatMessage(req.body?.text);
+ if(!content)return res.status(400).json({ok:false,error:'Tin nhắn không hợp lệ hoặc chứa đường link/spam'});
+ const result=room.submitAbbot(content);
+ if(!result.ok)return res.status(result.reason==='cooldown'?429:400).json({ok:false,error:result.reason==='cooldown'?'Vui lòng chờ một chút giữa các tin nhắn':'Tin nhắn không hợp lệ'});
+ res.json(result);
+});
 app.post('/api/trutri/chat/delete',requireAdmin,guestOrigin,(req,res)=>res.json({ok:room.deleteMessage(req.body?.id)}));
 app.post('/api/trutri/chat/clear',requireAdmin,guestOrigin,(_req,res)=>{room.clearChat();res.json({ok:true})});
 
