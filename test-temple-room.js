@@ -38,4 +38,4 @@ max.request({id:'tt:1',displayName:'a',comment:'a'});max.request({id:'tt:2',disp
 assert.equal(max.approve('tt:1').ok,true);assert.equal(max.approve('tt:2').ok,true);
 assert.equal(max.approve('tt:3').reason,'full');
 now+=3*60000;room.sweep();assert.equal(room.status(session).status,'not-approved');
-console.log('PASS: Linh Ung private admission 100 cap, any comment, chat, admin moderation, no registration');
+console.log('PASS: SAGS CXR Tam Bảo private admission 100 cap, any comment, chat, admin moderation, no registration');
