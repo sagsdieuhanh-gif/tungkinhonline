@@ -1,7 +1,7 @@
-name: Verify SAGS CXR Tam Bảo moderated room
+name: Verify SAGS CXR Tam Bảo open-door room
 on:
   push:
-    branches: [feature/linh-ung-approved-room]
+    branches: [feature/linh-ung-approved-room, main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +21,7 @@ jobs:
           node --check temple-room.js
           node --check temple-loc.js
           node --check public/js/live.js
+          node --check public/js/chat-dock.js
           node --check test-temple-loc.js
           node test-temple-room.js
           node test-temple-loc.js
@@ -42,6 +43,8 @@ jobs:
           assert(server.includes("app.post('/api/trutri/decide',requireAdmin"));
           assert(server.includes("app.get('/api/temple/chat'"));
           assert(live.includes("if (!viewer) return '';"));
-          assert(/không cần tạo tài khoản/i.test(page));
+          assert(/không cần tài khoản hay mật khẩu/i.test(page));
+          assert(/VÀO CHÁNH ĐIỆN NGAY/.test(page));
+          assert(/visitorChatDock/.test(page));
           console.log('PASS: protected stage, administrator, no fake viewer sprites');
           NODE
