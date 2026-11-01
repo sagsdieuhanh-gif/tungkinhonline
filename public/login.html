@@ -15,7 +15,7 @@
 </head>
 <body><main>
   <h1>🪷 TỤNG KINH ONLINE</h1>
-  <p>Đăng nhập để kết nối TikTok và điều khiển các nghi thức. Khách truy cập vẫn có thể xem màn hình Live.</p>
+  <p>Bảng điều khiển dành riêng cho quản trị. Người xem chỉ thấy chánh điện và phòng chat chung.</p>
   <form id="form">
     <label for="password">Mật khẩu quản trị</label>
     <input id="password" type="password" autocomplete="current-password" required autofocus maxlength="256">
@@ -33,7 +33,8 @@
       const data=await resp.json();
       if(!resp.ok||!data.ok){message.textContent=data.error||'Đăng nhập thất bại';return;}
       const next = new URLSearchParams(location.search).get('next');
-      window.location.replace(next === '/' ? '/' : '/admin');
+      // Explicit allowlist to prevent external/open redirects.
+      window.location.replace(next === '/?admin=1' ? '/?admin=1' : next === '/' ? '/' : '/admin');
     }catch(err){message.textContent='Không thể kết nối máy chủ';}
   });
 </script>
