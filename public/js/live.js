@@ -396,6 +396,68 @@
     if (hudAct) hudAct.textContent = actionLabel || 'Dâng hương';
   }
 
+  // Tên đặt thủ công hiển thị trên cả màn hình Live và nguồn OBS,
+  // nhưng không làm tăng công đức hoặc thay đổi tên người xem TikTok thật.
+  function displayManualName(name, wish) {
+    const cleanName = String(name || '').trim();
+    if (!cleanName) return;
+    const displayWish = wish || 'Cầu bình an, vạn sự cát tường';
+    const fields = {
+      centralName: cleanName,
+      devoteeNameLine: cleanName,
+      centralAction: '🙏 Đã đặt tên thí chủ',
+      devoteeActionTag: 'Cầu bình an',
+      centralWishBubble: '“' + displayWish + '”',
+      centralAvatar: cleanName.charAt(0).toUpperCase()
+    };
+    for (const [id, value] of Object.entries(fields)) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      if (id === 'centralAvatar') el.textContent = value;
+      else el.textContent = value;
+    }
+  }
+
+  const nameInput = document.getElementById('inputDevoteeName');
+  const wishInput = document.getElementById('inputDevoteeWish');
+  const nameStatus = document.getElementById('nameSaveStatus');
+  const setNameStatus = (message, isError = false) => {
+    if (!nameStatus) return;
+    nameStatus.textContent = message;
+    nameStatus.style.color = isError ? '#ffab9f' : '#a7f1be';
+  };
+  try {
+    const storedName = localStorage.getItem('temple_manual_devotee_name');
+    if (storedName && nameInput && !nameInput.value) nameInput.value = storedName.slice(0, 26);
+  } catch (_) {}
+
+  document.getElementById('btnSaveDevoteeName')?.addEventListener('click', async event => {
+    const name = nameInput?.value.trim() || '';
+    const wish = wishInput?.value.trim() || '';
+    if (name.length < 2 || name.length > 26 || !/[A-Za-zÀ-ỹ].*[A-Za-zÀ-ỹ]/u.test(name)) {
+      setNameStatus('❌ Tên cần 2–26 ký tự, có ít nhất hai chữ cái. Không dùng riêng số hoặc biểu tượng.', true);
+      nameInput?.focus();
+      return;
+    }
+    const button = event.currentTarget;
+    button.disabled = true;
+    setNameStatus('⏳ Đang lưu tên và cập nhật màn hình Live / OBS...');
+    try {
+      const response = await callRpc('temple.setStageName', { name, wish });
+      if (response?.error || !response?.result?.name) {
+        setNameStatus('❌ ' + (response?.error?.message || 'Không lưu được tên. Hãy đăng nhập quản trị trước.'), true);
+        return;
+      }
+      const savedName = response.result.name;
+      if (nameInput) nameInput.value = savedName;
+      try { localStorage.setItem('temple_manual_devotee_name', savedName); } catch (_) {}
+      displayManualName(savedName, response.result.wish);
+      setNameStatus('✅ Đã đặt tên “' + savedName + '” trên sân khấu; màn hình OBS đã được gửi cập nhật.');
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   // 6. Cập nhật toàn bộ giao diện theo State từ Server
   let hasInitializedRealLeader = false;
 
@@ -413,6 +475,13 @@
     renderVipCushions(lb);
     renderCongregationHall(lb);
 
+    // Tên đặt thủ công được ưu tiên lúc mở sân khấu; sự kiện Live thật vẫn
+    // tự cập nhật tên người tương tác sau đó.
+    if (!hasInitializedRealLeader && st.manualDisplayName) {
+      hasInitializedRealLeader = true;
+      displayManualName(st.manualDisplayName, st.manualDisplayWish);
+      if (nameInput && !nameInput.value.trim()) nameInput.value = st.manualDisplayName;
+    }
     // Đồng bộ tên Chủ Lễ mặc định theo người dẫn đầu thực tế nếu chưa có sự kiện mới
     if (!hasInitializedRealLeader && lb.length > 0) {
       hasInitializedRealLeader = true;
@@ -534,6 +603,11 @@
     }
 
     switch (ev.type) {
+      case 'setStageName': {
+        displayManualName(ev.user, ev.wish);
+        setNameStatus('✅ Tên sân khấu đã cập nhật: ' + ev.user);
+        break;
+      }
       case 'burnIncense': {
         audio.playIncenseChime();
         particles.spawnIncenseBurst(540, 895);
@@ -741,7 +815,7 @@
   }
 
   function getFormInput() {
-    const user = document.getElementById('inputDevoteeName')?.value.trim() || 'Quỳnh_Finn';
+    const user = document.getElementById('inputDevoteeName')?.value.trim() || 'Thí Chủ Hữu Duyên';
     const wish =
       document.getElementById('inputDevoteeWish')?.value.trim() ||
       'Cầu cho gia đình bình an, tài lộc hanh thông';
