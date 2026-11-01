@@ -23,13 +23,26 @@ assert.equal(room.submit(session.id,'Nhân viên A','Chúc bình an','web').ok,t
 assert.equal(room.submit(session.id,'Nhân viên A','Quá nhanh','web').reason,'cooldown');
 now+=5000;
 assert.equal(room.submit('tt:t1','Khách TikTok','Nam mô','tiktok').ok,true);
-assert.equal(room.chat(session.id).messages.length,2);
+const all=room.chat(session.id).messages;
+assert.equal(all.length,4); // every accepted visitor chat gets a blessing
+assert.equal(all.filter(m=>m.role==='abbot').length,2);
+assert.ok(all[1].text.startsWith('Chúc Nhân viên A '));
+assert.ok(all[3].text.startsWith('Chúc Khách Tiktok '));
+assert.equal(all[1].automated,true);
+assert.equal(all[3].automated,true);
+assert.notEqual(all[1].text,all[3].text,'Varied blessing templates');
+assert.ok(all.every(m=>typeof m.text==='string'&&m.text.length<=180));
+assert.equal(room.submitAbbot('Trụ trì chào tất cả Phật tử').ok,true);
+assert.equal(room.chat(session.id).messages.length,5,'Manual abbot message never self-replies');
+assert.equal(room.chat(session.id).messages[4].role,'abbot');
+assert.equal(room.chat(session.id).messages[4].automated,undefined);
+assert.equal(room.submitAbbot('Tin quá nhanh').reason,'cooldown');
 assert.equal(room.chat('not-member'),null);
 assert.equal(room.chat(session.id).messages.some(x=>'senderId' in x),false);
 assert.equal(room.setMute('tt:t1',true),true);
 assert.equal(room.submit('tt:t1','Tiktok','có thể chat').reason,'muted');
 assert.equal(room.deleteMessage(room.chat(session.id).messages[0].id),true);
-assert.equal(room.chat(session.id).messages.length,1);
+assert.equal(room.chat(session.id).messages.length,4);
 assert.equal(room.remove('tt:t1'),true);
 const other=room.tiktokComment('t2','Phật tử','❤️');assert.equal(other.approved,false);
 assert.equal(room.moderation().pending.some(x=>x.comment==='❤️'),true);
@@ -38,4 +51,4 @@ max.request({id:'tt:1',displayName:'a',comment:'a'});max.request({id:'tt:2',disp
 assert.equal(max.approve('tt:1').ok,true);assert.equal(max.approve('tt:2').ok,true);
 assert.equal(max.approve('tt:3').reason,'full');
 now+=3*60000;room.sweep();assert.equal(room.status(session).status,'not-approved');
-console.log('PASS: SAGS CXR Tam Bảo private admission 100 cap, any comment, chat, admin moderation, no registration');
+console.log('PASS: SAGS CXR Tam Bảo moderator chat, varied personal blessings, no bot loops, admission and mute');
