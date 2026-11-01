@@ -138,9 +138,14 @@
     { x: 940, y: 1188, rank: 6 }
   ];
 
+  let lastVipActorSignature = '';
   function renderVipCushions(leaderboard = []) {
     const layer = document.getElementById('vipCushionsLayer');
     if (!layer) return;
+    // Preserve existing named actor sprites while unrelated state messages arrive.
+    const signature = JSON.stringify(leaderboard.slice(0, 6).map(d => [d.uniqueId, d.name, d.merit]));
+    if (signature === lastVipActorSignature) return;
+    lastVipActorSignature = signature;
 
     layer.innerHTML = VIP_CUSHION_COORDS.map((slot, idx) => {
       const dev = leaderboard[idx];
@@ -195,7 +200,7 @@
     if (!congregationHall) return;
     // Những người xếp từ hạng 7 trở đi ngồi ở các vị trí đầu tiên cạnh thảm đỏ
     const hallViewers = leaderboard.slice(6);
-    const sig = JSON.stringify(hallViewers.map((d) => `${d.name}:${d.merit}`));
+    const sig = JSON.stringify(hallViewers.map((d) => `${d.uniqueId}:${d.name}:${d.merit}`));
     if (sig === lastRenderedLeaderboardJson && congregationHall.children.length > 0) return;
     lastRenderedLeaderboardJson = sig;
 
@@ -276,28 +281,69 @@
     });
   }
 
-  function animateExactlyThisDevotee(ev) {
-    // Do not make the first or an unrelated worshipper bow.
-    const identity=String(ev.uniqueId||'').replace(/^tt:/,'');
-    const name=String(ev.user||'').trim().normalize('NFC');
-    const seats=document.querySelectorAll('.vip-devotee-slot, .hall-seat');
-    const slot=Array.from(seats).find(node=>
-      (identity && node.dataset.devoteeId===identity)
-      || (name && node.dataset.devoteeName?.normalize('NFC')===name));
-    const img=slot?.querySelector('.devotee-sprite');
-    if(!img)return;
-    const token=String(Date.now())+Math.random().toString(36).slice(2);
-    img.dataset.ritualToken=token;
-    const steps=[
-      [0,'forehead'],[230,'bowMid'],[510,'prostrate'],
-      [730,'prostrateDeep'],[1180,'prostrate'],
-      [1450,'bowMid'],[1690,'kneel']
-    ];
-    for(const [ms,pose] of steps){
-      setTimeout(()=>{
-        if(img.isConnected&&img.dataset.ritualToken===token)img.src=SPRITE_FRAMES[pose];
-      },ms);
+  function normalizeDevoteeName(value) {
+    return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('vi');
+  }
+
+  // Person in the seat is identified by their server-issued participant key.
+  // Legacy seat IDs contain only the first 40 characters of web session IDs,
+  // while actual ceremony events contain the full key. Match that prefix
+  // only for web identities, otherwise use an unambiguous normalized name.
+  function findRitualDevoteeSeat(ev, seats) {
+    const all = Array.from(seats || []);
+    const id = String(ev?.uniqueId || '').replace(/^tt:/, '').trim();
+    if (id) {
+      const identified = all.filter(node => {
+        const seatId = String(node.dataset?.devoteeId || '').trim();
+        return !!seatId && (
+          seatId === id || (
+            id.startsWith('web:') &&
+            seatId.startsWith('web:') &&
+            id.startsWith(seatId) &&
+            seatId.length >= 20
+          )
+        );
+      });
+      if (identified.length === 1) return identified[0];
+      if (identified.length > 1) return null;
     }
+    const name = normalizeDevoteeName(ev?.user);
+    if (!name) return null;
+    const named = all.filter(node =>
+      normalizeDevoteeName(node.dataset?.devoteeName) === name);
+    return named.length === 1 ? named[0] : null;
+  }
+
+  function animateExactlyThisDevotee(ev) {
+    // Named VIP and ordinary seats have the same sprites/animation rights.
+    // Never animate an unrelated/first seat as fallback.
+    const seats = document.querySelectorAll('.vip-devotee-slot, .hall-seat');
+    const slot = findRitualDevoteeSeat(ev, seats);
+    const img = slot?.querySelector('.devotee-sprite');
+    if (!img) return false;
+    const token = String(Date.now()) + Math.random().toString(36).slice(2);
+    img.dataset.ritualToken = token;
+    const poses = [];
+    if (ev.type === 'bowToBuddha') {
+      // Three bows: hands together, bow, prostrate, rise, repeat.
+      poses.push([0,'kneelDown']);
+      for (let n = 0; n < 3; n++) {
+        const offset = 180 + n * 1420;
+        poses.push([offset,'forehead'],[offset+200,'bowMid'],
+          [offset+410,'prostrate'],[offset+620,'prostrateDeep'],
+          [offset+990,'prostrate'],[offset+1180,'kneel']);
+      }
+    } else {
+      poses.push([0,'forehead'],[230,'bowMid'],[510,'prostrate'],
+        [730,'prostrateDeep'],[1180,'prostrate'],
+        [1450,'bowMid'],[1690,'kneel']);
+    }
+    for (const [ms,pose] of poses) {
+      setTimeout(() => {
+        if (img.isConnected && img.dataset.ritualToken === token) img.src = SPRITE_FRAMES[pose];
+      }, ms);
+    }
+    return true;
   }
 
   let prostrationTimers = [];
@@ -428,6 +474,10 @@
   function displayManualName(name, wish) {
     const cleanName = String(name || '').trim();
     if (!cleanName) return;
+    // A character explicitly named by Trụ trì should not be hidden merely
+    // because that name was not created through guest admission.
+    const stageActor = document.getElementById('centralWorshipper');
+    if (stageActor) stageActor.style.display = '';
     const displayWish = wish || 'Cầu bình an, vạn sự cát tường';
     const fields = {
       centralName: cleanName,
@@ -500,7 +550,7 @@
 
     const lb = Array.isArray(st.leaderboard) ? st.leaderboard : [];
     const central=document.getElementById('centralWorshipper');
-    if(central)central.style.display=lb.length?'':'none'; // no virtual worshipper when room is empty
+    if(central)central.style.display=(lb.length || st.manualDisplayName)?'':'none'; // show explicitly named stage actor, but do not add fake attendees
     renderVipCushions(lb);
     renderCongregationHall(lb);
 
@@ -643,7 +693,10 @@
       }
       case 'setStageName': {
         displayManualName(ev.user, ev.wish);
-        setNameStatus('✅ Tên sân khấu đã cập nhật: ' + ev.user);
+        // Previously this route only changed lettering; now the explicitly
+        // named central worshipper walks up and performs three bows.
+        animateWalkerOnCarpet(ev.user, ev.avatar, '🙏 Chắp tay · Đảnh lễ Tam Bái', ev.wish);
+        setNameStatus('✅ Đã đặt tên và hành lễ trên sân khấu: ' + ev.user);
         break;
       }
       case 'burnIncense': {
@@ -657,15 +710,15 @@
 
       case 'strikeWoodenFish': {
         audio.playWoodenFish();
-        pulseHallBowing();
+        if (!animateExactlyThisDevotee(ev) && !ev.uniqueId) pulseHallBowing();
         particles.spawnFloatingMerit(`+${ev.merit} Công Đức`, 890, 935, '#ffd54f');
         break;
       }
 
       case 'ringBell': {
-        animateExactlyThisDevotee(ev);
+        const foundDevotee = animateExactlyThisDevotee(ev);
         audio.playTempleBell(1.0);
-        pulseHallBowing();
+        if (!foundDevotee && !ev.uniqueId) pulseHallBowing();
         particles.spawnBellWave(540, 510, 4);
         particles.spawnFloatingMerit(`+${ev.merit} Công Đức`, 190, 935, '#fff3b0');
         updateCentralWorshipper(ev.user, ev.avatar, `🔔 Thỉnh Đại Hồng Chung (+${ev.merit} CĐ)`, ev.wish);
@@ -703,6 +756,7 @@
       }
 
       case 'drawFortune': {
+        animateExactlyThisDevotee(ev);
         audio.playFortuneShake();
         updateCentralWorshipper(
           ev.user,
