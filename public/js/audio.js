@@ -408,7 +408,7 @@ class TempleAudioEngine {
       fetchPromise: null
     };
 
-    if (!item.url) {
+    if (!item.url && this.serverTtsAvailable) {
       item.fetchPromise = this.fetchZeroTtsAudio(item.text, item.voice);
     }
 
