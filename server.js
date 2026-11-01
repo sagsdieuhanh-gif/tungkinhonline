@@ -339,7 +339,7 @@ function saveState() {
 function getLeaderboard(limit = 6) {
   // Only individuals explicitly approved by the Trụ trì may occupy a seat.
   return room.list().map(p=>{
-    const key=p.id.startsWith('tt:')?p.id.slice(3):p.id;
+    const key=(p.id.startsWith('tt:')?p.id.slice(3):p.id).slice(0,40);
     const d=state.devotees[key]||{};
     return {name:p.name,uniqueId:key,avatar:d.avatar||p.avatar||'',merit:d.merit||0,incense:d.incense||0,lastWish:d.lastWish||'',group:p.group,joinedAt:p.joinedAt};
   }).sort((a,b)=>b.merit-a.merit||a.joinedAt-b.joinedAt).slice(0,limit).map((d,index)=>({...d,rank:index+1}));
@@ -1464,17 +1464,17 @@ app.post('/api/chat',guestOrigin,(req,res)=>{
 });
 app.delete('/api/chat',requireAdmin,(_req,res)=>{room.clearChat();res.json({ok:true})});
 app.get('/api/trutri/room',requireAdmin,(_req,res)=>{res.setHeader('Cache-Control','no-store');res.json(room.moderation())});
-app.post('/api/trutri/decide',requireAdmin,(req,res)=>{
+app.post('/api/trutri/decide',requireAdmin,guestOrigin,(req,res)=>{
  const id=String(req.body?.id||''),r=req.body?.allow?room.approve(id,req.body?.group):{ok:room.deny(id)};
  if(!r.ok)return res.status(409).json({error:r.reason||'Yêu cầu không tồn tại hoặc đã được xử lý'});
  broadcastNotification('temple.state',getPublicState());res.json({ok:true});
 });
-app.post('/api/trutri/remove',requireAdmin,(req,res)=>{
+app.post('/api/trutri/remove',requireAdmin,guestOrigin,(req,res)=>{
  const ok=room.remove(req.body?.id);broadcastNotification('temple.state',getPublicState());res.json({ok});
 });
-app.post('/api/trutri/mute',requireAdmin,(req,res)=>res.json({ok:room.setMute(req.body?.id,Boolean(req.body?.muted))}));
-app.post('/api/trutri/chat/delete',requireAdmin,(req,res)=>res.json({ok:room.deleteMessage(req.body?.id)}));
-app.post('/api/trutri/chat/clear',requireAdmin,(_req,res)=>{room.clearChat();res.json({ok:true})});
+app.post('/api/trutri/mute',requireAdmin,guestOrigin,(req,res)=>res.json({ok:room.setMute(req.body?.id,Boolean(req.body?.muted))}));
+app.post('/api/trutri/chat/delete',requireAdmin,guestOrigin,(req,res)=>res.json({ok:room.deleteMessage(req.body?.id)}));
+app.post('/api/trutri/chat/clear',requireAdmin,guestOrigin,(_req,res)=>{room.clearChat();res.json({ok:true})});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ req, origin }, done) => {
