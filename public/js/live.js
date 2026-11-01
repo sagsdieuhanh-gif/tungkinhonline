@@ -11,6 +11,47 @@
     document.body.classList.add('obs-mode');
   }
 
+  // Keep public display clean. Only a signed administrator session can
+  // enable the Live controller, and only through the explicit admin URL.
+  const adminRequested = params.get('admin') === '1' && params.get('obs') !== '1';
+  const adminLoginUrl = '/login?next=%2F%3Fadmin%3D1';
+  if (adminRequested) document.body.classList.add('admin-requested');
+
+  fetch('/auth/status', { credentials: 'same-origin', cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) throw new Error('Không đọc được trạng thái đăng nhập');
+      return response.json();
+    })
+    .then(status => {
+      const authenticated = Boolean(status.authenticated);
+      const link = document.getElementById('adminLoginLink');
+      const logout = document.getElementById('adminLogoutBtn');
+      if (adminRequested && !authenticated) {
+        window.location.replace(adminLoginUrl);
+        return;
+      }
+      if (adminRequested && authenticated) {
+        document.body.classList.add('admin-mode');
+        if (link) {
+          link.textContent = '🎛️ Bảng điều khiển LIVE';
+          link.href = '/admin';
+        }
+        if (logout) logout.hidden = false;
+      } else if (authenticated && link) {
+        // The normal URL remains a public sanctuary, even for an admin.
+        link.textContent = '🎛️ Mở quản trị';
+        link.href = '/?admin=1';
+      }
+    })
+    .catch(() => {
+      if (adminRequested) window.location.replace(adminLoginUrl);
+    });
+
+  document.getElementById('adminLogoutBtn')?.addEventListener('click', async () => {
+    try { await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }); }
+    finally { window.location.replace('/'); }
+  });
+
   // 1. Tự động co giãn khung 1080x1920 vừa khít Stage Wrapper (9:16)
   const stageWrapper = document.getElementById('stageWrapper');
   const stage9x16 = document.getElementById('stage9x16');
