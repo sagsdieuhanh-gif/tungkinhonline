@@ -574,6 +574,8 @@
 
   function formatEventSummary(ev) {
     switch (ev.type) {
+      case 'bowToBuddha':
+        return `🙏 <strong>${escapeHtml(ev.user)}</strong> thành tâm lễ Phật`;
       case 'burnIncense':
         return `🔥 <strong>${escapeHtml(ev.user)}</strong> dâng ${ev.count} nén nhang (+${ev.merit} CĐ)`;
       case 'strikeWoodenFish':
@@ -604,6 +606,17 @@
     }
 
     switch (ev.type) {
+      case 'bowToBuddha': {
+        const person = congregationHall?.querySelector('.hall-seat');
+        const img = person?.querySelector('.devotee-sprite');
+        if (img) {
+          img.src = SPRITE_FRAMES.bowMid;
+          setTimeout(() => { if (img.isConnected) img.src = SPRITE_FRAMES.prostrateDeep; }, 350);
+          setTimeout(() => { if (img.isConnected) img.src = SPRITE_FRAMES.kneel; }, 1500);
+        }
+        updateCentralWorshipper(ev.user, ev.avatar, '🙏 Lễ Phật', ev.wish, true);
+        break;
+      }
       case 'setStageName': {
         displayManualName(ev.user, ev.wish);
         setNameStatus('✅ Tên sân khấu đã cập nhật: ' + ev.user);
