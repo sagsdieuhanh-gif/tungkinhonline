@@ -256,6 +256,8 @@ const DEFAULT_STATE = {
     dragon: 1
   },
   devotees: {},
+  manualDisplayName: '',
+  manualDisplayWish: '',
   recentEvents: [],
   settings: {
     ttsEnabled: true,
@@ -311,6 +313,8 @@ function saveState() {
       activeIncenseSticks: state.activeIncenseSticks,
       offerings: state.offerings,
       devotees: state.devotees,
+      manualDisplayName: state.manualDisplayName || '',
+      manualDisplayWish: state.manualDisplayWish || '',
       settings: state.settings
     };
     fs.promises.writeFile(STATE_FILE, JSON.stringify(toSave, null, 2), 'utf8').catch((e) => {
@@ -442,6 +446,8 @@ function getPublicState() {
     haloIntensity: state.haloIntensity,
     offerings: state.offerings,
     leaderboard: getLeaderboard(24),
+    manualDisplayName: state.manualDisplayName || '',
+    manualDisplayWish: state.manualDisplayWish || '',
     recentEvents: state.recentEvents.slice(0, 15),
     settings: state.settings,
     tiktok: state.tiktok,
@@ -1057,6 +1063,26 @@ async function handleRpcCall(method, params = {}) {
       return Rituals.drawFortune(params);
     case 'temple.grandCeremony':
       return Rituals.grandCeremony(params);
+    case 'temple.setStageName': {
+      const raw = String(params.name || '').trim();
+      if (raw.length < 2 || raw.length > 26) {
+        throw new Error('Tên thí chủ cần có từ 2 đến 26 ký tự');
+      }
+      const name = sanitizeUserName(raw);
+      if (name === 'Thí Chủ Hữu Duyên' && raw !== name) {
+        throw new Error('Tên không hợp lệ. Hãy dùng chữ tiếng Việt hoặc chữ cái, không chỉ nhập biểu tượng');
+      }
+      const wish = sanitizeWishText(params.wish) || 'Cầu gia đình bình an, vạn sự cát tường';
+      state.manualDisplayName = name;
+      state.manualDisplayWish = wish;
+      saveState();
+      const result = getPublicState();
+      broadcastNotification('temple.event', {
+        event: { type: 'setStageName', user: name, wish },
+        state: result
+      });
+      return { name, wish, state: result };
+    }
     case 'temple.updateSettings':
       return Rituals.updateSettings(params);
     case 'temple.resetMerit':
