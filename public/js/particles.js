@@ -9,7 +9,7 @@
 class TempleParticleEngine {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+    // Keep the alpha-composited canvas in the normal compositor path.\n    // Chromium can display an opaque black rectangle with desynchronized:true,\n    // hiding the underlying sanctuary image despite drawing transparent particles.\n    this.ctx = canvas.getContext('2d', { alpha: true, desynchronized: false });
     this.width = 1080;
     this.height = 1920;
     this.canvas.width = this.width;
