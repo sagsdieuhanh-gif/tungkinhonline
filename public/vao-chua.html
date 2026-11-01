@@ -14,7 +14,14 @@ button.primary{background:linear-gradient(145deg,#f8d993,#b8803a);color:#241407;
 .chatline{border-bottom:1px solid #74503145;padding:4px 0 10px}.chatmeta{font-size:11px;color:#d8b472}.chattext{white-space:pre-wrap;overflow-wrap:anywhere;color:#f7ebd3;font-size:13px;line-height:1.45}
 form.chatForm{display:flex;gap:8px;margin-top:12px}form.chatForm input{min-width:0;flex:1}form.chatForm button{white-space:nowrap}
 .stageframe{width:100%;aspect-ratio:9/16;max-height:550px;display:block;background:#070403;border-radius:10px;border:1px solid #6c452c}
-.members{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.member{font-size:12px;padding:7px 10px;border-radius:99px;background:#513725;border:1px solid #e7ba6b42}
+.members{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.lucky-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}
+.lucky-grid button{white-space:normal;font-size:13px;line-height:1.5;min-width:0}
+.lucky-grid button small{display:block;font-size:11px;color:#e7c78c}
+.lucky-balance{font-size:24px;font-weight:800;color:#ffdfa1}
+.lucky-hint{font-size:12px;color:#e3c99d;line-height:1.55}
+#locGuestStatus{font-size:13px;line-height:1.6;white-space:pre-wrap}
+#locGuestClaim{width:100%;background:linear-gradient(145deg,#ffe69b,#d3a047);color:#271206;font-weight:800}.member{font-size:12px;padding:7px 10px;border-radius:99px;background:#513725;border:1px solid #e7ba6b42}
 footer{text-align:center;color:#b99d7b;font-size:12px;margin:30px auto;line-height:1.5}
 @media(max-width:780px){.grid{grid-template-columns:1fr}form.chatForm{flex-wrap:wrap}form.chatForm button{width:100%}.counter{float:none;display:block;width:max-content;margin-top:7px}}
 </style></head><body><main>
@@ -29,6 +36,24 @@ footer{text-align:center;color:#b99d7b;font-size:12px;margin:30px auto;line-heig
 <button type="button" id="leaveBtn" class="hidden">Rời chánh điện</button>
 </div>
 <section id="inside" class="hidden">
+<div class="card" id="locGuestPanel">
+<h2>🧧 Lộc may mắn do Trụ trì phát</h2>
+<p class="lucky-hint">Khi Trụ trì mở đợt phát lộc, bạn bấm MỞ LỘC một lần để nhận số lộc ngẫu nhiên. Dùng lộc ảo để dâng sen, thắp hương, thỉnh chuông và hành lễ. Không phải tiền thật hoặc xu TikTok.</p>
+<div class="row"><strong>Số dư:</strong><span class="lucky-balance" id="locGuestBalance">0 lộc</span></div>
+<div class="status" id="locGuestRound">Đang xem quỹ lộc...</div>
+<button id="locGuestClaim" type="button" disabled>🧧 CHỜ TRỤ TRÌ PHÁT LỘC</button>
+<label for="locGuestWish">Lời cầu nguyện</label><input id="locGuestWish" maxlength="120" placeholder="Cầu gia đình bình an..." />
+<div class="lucky-grid">
+<button type="button" data-loc-ritual="bow">🙏 Lễ Phật <small>Miễn phí</small></button>
+<button type="button" data-loc-ritual="woodenFish">🪵 Gõ mõ <small>1 lộc</small></button>
+<button type="button" data-loc-ritual="incense">🔥 Thắp hương <small>5 lộc</small></button>
+<button type="button" data-loc-ritual="lotus">🪷 Dâng sen <small>20 lộc</small></button>
+<button type="button" data-loc-ritual="lantern">🏮 Thả hoa đăng <small>10 lộc</small></button>
+<button type="button" data-loc-ritual="bell">🔔 Thỉnh chuông <small>10 lộc</small></button>
+<button type="button" data-loc-ritual="fortune">🎋 Xin xăm <small>15 lộc</small></button>
+</div>
+<div id="locGuestStatus" role="status" aria-live="polite">Chỉ người được Trụ trì duyệt mới mở lộc và hành lễ.</div>
+</div>
 <div class="grid">
 <div class="card"><h2>🪷 Chánh điện và đọc kinh</h2><p class="muted">Bấm vào hình chánh điện để bật âm thanh nếu trình duyệt đang chặn tự phát.</p><iframe title="Chánh điện Linh Ứng" id="templeFrame" class="stageframe" loading="lazy" allow="autoplay" referrerpolicy="same-origin"></iframe></div>
 <div class="card"><h2>💬 Trò chuyện trong chánh điện</h2><p class="muted">Tin nhắn từ người đã được duyệt trên website và TikTok LIVE. Trụ trì có quyền xóa tin, tắt chat.</p><div id="chatLog" class="chatlog" role="log"><span class="muted">Chưa có tin nhắn.</span></div>
@@ -54,7 +79,7 @@ function statusView(x){
 }
 async function refresh(){
  if(document.hidden)return;
- try{let s=await api('/api/temple/me');statusView(s);if(s.status==='approved')await loadChat()}
+ try{let s=await api('/api/temple/me');statusView(s);if(s.status==='approved'){await Promise.all([loadChat(),refreshLoc()])}}
  catch(e){$('statusDetail').textContent=e.message}
 }
 async function loadChat(){
@@ -65,6 +90,48 @@ async function loadChat(){
 }
 $('joinForm').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;$('joinSubmit').disabled=true;try{statusView(await api('/api/temple/join',{name:$('displayName').value,comment:$('joinText').value}))}catch(e){$('statusDetail').textContent=e.message}finally{busy=false;$('joinSubmit').disabled=false}});
 $('chatForm').addEventListener('submit',async e=>{e.preventDefault();const input=$('chatText');const text=input.value.trim();if(!text)return;try{await api('/api/temple/chat',{text});input.value='';await loadChat()}catch(e){$('chatInfo').textContent=e.message}});
+
+let locBusy=false;
+async function refreshLoc(){
+ if(currentStatus!=='approved'||document.hidden)return;
+ try{
+  const v=await api('/api/temple/loc/status'),e=v.envelope;
+  $('locGuestBalance').textContent=v.balance.toLocaleString('vi-VN')+' lộc';
+  $('locGuestRound').textContent=!e?'Chưa có đợt tặng lộc':
+   (e.active?'🧧 ĐANG PHÁT':'Đã kết thúc đợt lộc')+
+   ' · Còn '+e.remaining.toLocaleString('vi-VN')+'/'+e.total.toLocaleString('vi-VN')+
+   ' lộc · '+e.claimed+' lượt mở';
+  const b=$('locGuestClaim');
+  b.disabled=locBusy||!e?.active||v.claimed;
+  b.textContent=v.claimed?'✅ ĐÃ MỞ LỘC ĐỢT NÀY':e?.active?'🧧 MỞ LỘC MAY MẮN':'🧧 CHỜ TRỤ TRÌ PHÁT LỘC';
+ }catch(err){$('locGuestStatus').textContent=err.message}
+}
+$('locGuestClaim').onclick=async()=>{
+ if(locBusy||currentStatus!=='approved')return;
+ locBusy=true;$('locGuestClaim').disabled=true;
+ try{
+  const r=await api('/api/temple/loc/claim',{});
+  $('locGuestStatus').textContent='🎊 Bạn đã mở được '+r.amount+' lộc ảo! Hãy chọn một nghi thức bên dưới.';
+ }catch(err){$('locGuestStatus').textContent='❌ '+err.message}
+ finally{locBusy=false;await refreshLoc()}
+};
+document.querySelectorAll('[data-loc-ritual]').forEach(b=>b.onclick=async()=>{
+ if(locBusy||currentStatus!=='approved')return;
+ locBusy=true;
+ document.querySelectorAll('[data-loc-ritual]').forEach(el=>el.disabled=true);
+ try{
+  const action=b.dataset.locRitual, wish=$('locGuestWish').value.trim();
+  const result=await api('/api/temple/loc/ritual',{action,wish});
+  $('locGuestStatus').textContent='🙏 Đã thực hiện '+b.textContent.trim().replace(/\s+/g,' ')+
+   (result.cost?' · Sử dụng '+result.cost+' lộc ảo.':' · Miễn phí.');
+ }catch(err){$('locGuestStatus').textContent='❌ '+err.message}
+ finally{
+  locBusy=false;
+  document.querySelectorAll('[data-loc-ritual]').forEach(el=>el.disabled=false);
+  await refreshLoc();
+ }
+});
 $('leaveBtn').addEventListener('click',async()=>{try{await api('/api/temple/leave',{});$('templeFrame').src='';chatVersion=-1;await refresh()}catch(e){$('statusDetail').textContent=e.message}});
-setInterval(refresh,5000);setInterval(()=>{if(currentStatus==='approved'&&!document.hidden)loadChat()},2700);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});refresh();
+setInterval(refresh,5000);setInterval(refreshLoc,4000);
+setInterval(()=>{if(currentStatus==='approved'&&!document.hidden)loadChat()},2700);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});refresh();
 </script></body></html>
