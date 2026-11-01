@@ -1,0 +1,45 @@
+/* Bottom 16:9 mini cinema for individual viewers; never broadcast to OBS. */
+.buddha-cinema[hidden]{display:none!important}
+.buddha-cinema{position:fixed;left:max(9px,env(safe-area-inset-left));bottom:max(72px,calc(env(safe-area-inset-bottom) + 72px));z-index:9700;
+  width:min(354px,calc(100vw - 18px));color:#ffeac7;font-family:system-ui,sans-serif;
+  filter:drop-shadow(0 9px 20px #0009)}
+.buddha-cinema button{font:inherit}
+.buddha-cinema-panel{overflow:hidden;border:2px solid #d8ad5c;border-radius:15px;
+  background:#201108f7;box-shadow:0 12px 34px #000b}
+.buddha-cinema-header{display:flex;align-items:center;justify-content:space-between;gap:7px;
+  padding:9px 11px;background:linear-gradient(110deg,#553018,#2b180b)}
+.buddha-cinema-header strong{font-size:13px;line-height:1.35;color:#ffe0a0}
+.buddha-cinema-header-actions{display:flex;gap:5px;flex-shrink:0}
+.buddha-cinema-icon-btn{border:1px solid #bd9155;border-radius:8px;min-width:32px;min-height:31px;
+  padding:4px 7px;color:#ffead0;background:#3b2415;cursor:pointer}
+.buddha-cinema-icon-btn:focus-visible,.buddha-cinema-show:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.buddha-cinema-screen{width:100%;aspect-ratio:16/9;background:#0c0906;
+  display:grid;place-items:center;position:relative;overflow:hidden}
+.buddha-cinema-screen iframe{display:block;width:100%;height:100%;border:0}
+.buddha-cinema-poster{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;gap:11px;padding:13px;
+  background:radial-gradient(circle at 50% 25%,#77492a,#1b100b 74%)}
+.buddha-cinema-poster span{font-size:42px}
+.buddha-cinema-play{padding:9px 18px;border-radius:999px;background:#e9bd68;color:#281407;
+  border:1px solid #ffdfa0;font-weight:800;cursor:pointer}
+.buddha-cinema-info{font-size:11px;line-height:1.5;color:#d9c39c;padding:8px 11px}
+.buddha-cinema-footer{display:flex;gap:9px;justify-content:space-between;align-items:center;
+  padding:0 11px 10px;font-size:11px;flex-wrap:wrap}
+.buddha-cinema-footer a{color:#ffe0a0;text-decoration:underline}
+.buddha-cinema-show{display:none;min-height:43px;border:2px solid #e8bc72;border-radius:999px;
+  padding:10px 17px;background:linear-gradient(100deg,#482b14,#25160e);
+  color:#ffe9be;font-size:13px;font-weight:900;white-space:nowrap;cursor:pointer;
+  box-shadow:0 4px 22px #000c}
+.buddha-cinema.is-minimized{width:auto}
+.buddha-cinema.is-minimized .buddha-cinema-panel{display:none}
+.buddha-cinema.is-minimized .buddha-cinema-show{display:block}
+.buddha-cinema.is-large{width:min(850px,calc(100vw - 18px));bottom:max(12px,env(safe-area-inset-bottom))}
+.buddha-cinema.is-large .buddha-cinema-screen{max-height:72dvh}
+body[data-theater-role="visitor"]:not(.sanctuary-fullscreen) .buddha-cinema{display:none}
+@media(max-width:600px){
+ .buddha-cinema{width:min(294px,calc(100vw - 18px));bottom:max(69px,calc(env(safe-area-inset-bottom) + 69px))}
+ .buddha-cinema.is-large{bottom:max(60px,calc(env(safe-area-inset-bottom) + 60px));width:calc(100vw - 18px)}
+ .buddha-cinema-header strong{font-size:12px}
+ .buddha-cinema-info{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.buddha-cinema{transition:none!important}}
