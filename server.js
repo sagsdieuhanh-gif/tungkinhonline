@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
+const { createTempleRoom } = require('./temple-room');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
@@ -298,6 +299,18 @@ function loadState() {
 }
 
 let state = loadState();
+// The actual room is ephemeral: an approved person must be physically present in this session.
+state.settings.autoSim=false; // never create fake followers.
+const room=createTempleRoom({notify:(method,params)=>{
+  broadcastNotification(method,params);
+  if(method==='temple.chat')broadcastNotification('chat.message',{
+    id:params.id,name:params.name,text:params.text,source:params.source,timestamp:params.at
+  });
+  if(method==='temple.chat-sync')broadcastNotification('chat.sync',(params.messages||[]).map(m=>({
+    id:m.id,name:m.name,text:m.text,source:m.source,timestamp:m.at
+  })));
+}});
+
 
 let saveTimer = null;
 function saveState() {
@@ -324,18 +337,12 @@ function saveState() {
 }
 
 function getLeaderboard(limit = 6) {
-  return Object.values(state.devotees)
-    .sort((a, b) => b.merit - a.merit)
-    .slice(0, limit)
-    .map((d, index) => ({
-      rank: index + 1,
-      name: d.name,
-      uniqueId: d.uniqueId,
-      avatar: d.avatar || '',
-      merit: d.merit,
-      incense: d.incense || 0,
-      lastWish: d.lastWish || ''
-    }));
+  // Only individuals explicitly approved by the Trụ trì may occupy a seat.
+  return room.list().map(p=>{
+    const key=p.id.startsWith('tt:')?p.id.slice(3):p.id;
+    const d=state.devotees[key]||{};
+    return {name:p.name,uniqueId:key,avatar:d.avatar||p.avatar||'',merit:d.merit||0,incense:d.incense||0,lastWish:d.lastWish||'',group:p.group,joinedAt:p.joinedAt};
+  }).sort((a,b)=>b.merit-a.merit||a.joinedAt-b.joinedAt).slice(0,limit).map((d,index)=>({...d,rank:index+1}));
 }
 // Bộ lọc chặn ký tự lạ (Cuneiform 𒐫, Zalgo, Braille, ký tự spam) & từ ngữ phản cảm
 const WEIRD_SPAM_RE = /[\u{12000}-\u{1254F}\uFDFD\u2800-\u28FF\u2580-\u259F]|[\u0300-\u036F]{3,}/u;
@@ -445,7 +452,8 @@ function getPublicState() {
     activeIncenseSticks: state.activeIncenseSticks,
     haloIntensity: state.haloIntensity,
     offerings: state.offerings,
-    leaderboard: getLeaderboard(24),
+    leaderboard: getLeaderboard(100),
+    attendance: room.publicRoom(),
     manualDisplayName: state.manualDisplayName || '',
     manualDisplayWish: state.manualDisplayWish || '',
     recentEvents: state.recentEvents.slice(0, 15),
@@ -895,24 +903,19 @@ async function connectTikTokLive(usernameOrUrl) {
     }
   });
 
-  tiktokConn.on(WebcastEvent.MEMBER, (data) => {
-    const { user, uniqueId, avatar } = extractUserFromEvent(data);
-    recordDevotee(user, uniqueId, avatar, 1, 0, 0, 'Đã vào Chánh Điện lễ Phật');
-    broadcastNotification('temple.state', getPublicState());
+  tiktokConn.on(WebcastEvent.MEMBER, () => {
+    // Watching TikTok LIVE is not the same as being admitted to the temple.
   });
 
   tiktokConn.on(WebcastEvent.CHAT, (data) => {
     const { user, uniqueId, avatar } = extractUserFromEvent(data);
     const commentText = data?.content || data?.comment || '';
     console.log(`[TikTok Chat] ${user}: ${commentText}`);
-    const publicText = cleanChatMessage(commentText);
-    const lastChat = tiktokChatRate.get(uniqueId || user) || 0;
-    if (publicText && Date.now() - lastChat >= 1500) {
-      tiktokChatRate.set(uniqueId || user, Date.now());
-      if (tiktokChatRate.size > 500) tiktokChatRate.clear();
-      appendSharedChat(user, publicText, 'tiktok');
-    }
-    parseViewerComment(commentText, user, uniqueId, avatar);
+    const entrance=room.tiktokComment(uniqueId,user,commentText);
+    if(!entrance.approved)return; // any nonempty comment queues a request; no rituals without approval.
+    const publicText=cleanChatMessage(commentText);
+    if(publicText)room.submit(entrance.id,user,publicText,'tiktok');
+    parseViewerComment(commentText,user,uniqueId,avatar);
   });
 
   tiktokConn.on(WebcastEvent.LIKE, (data) => {
@@ -1037,16 +1040,10 @@ function runSingleSimulationStep() {
   }
 }
 
-function configureAutoSim(enabled) {
-  state.settings.autoSim = Boolean(enabled);
-  if (autoSimTimer) {
-    clearInterval(autoSimTimer);
-    autoSimTimer = null;
-  }
-  if (state.settings.autoSim) {
-    runSingleSimulationStep();
-    autoSimTimer = setInterval(runSingleSimulationStep, state.settings.autoSimIntervalMs || 9500);
-  }
+function configureAutoSim(_enabled) {
+  // The temple contains only real, Trụ trì-approved participants.
+  state.settings.autoSim=false;
+  if(autoSimTimer){clearInterval(autoSimTimer);autoSimTimer=null}
 }
 
 // ============================================================================
@@ -1310,12 +1307,31 @@ app.post('/auth/logout', (_req, res) => {
   res.setHeader('Set-Cookie', 'tko_admin=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax');
   res.json({ ok: true });
 });
+app.get('/trutri', (req,res)=>{
+  if(!authorized(req))return res.redirect(302,'/login');
+  res.sendFile(path.join(__dirname,'public','trutri.html'));
+});
 app.get(['/admin', '/admin.html'], (req, res) => {
   if (!authorized(req)) return res.redirect(302, '/login');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Root is the invitation gate, never direct entry to the prayer hall.
+app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'public','vao-chua.html')));
+app.get('/index.html',(req,res)=>res.redirect(302,'/'));
+app.get('/chandien',(req,res)=>{
+  const ses=room.identity(req,res);
+  if(!authorized(req)&&!room.isApproved(ses.id))return res.redirect(302,'/');
+  return res.sendFile(path.join(__dirname,'public','index.html'));
+});
+app.get('/obs',(_req,res)=>{
+  // Read-only broadcast display. Streaming audiences do not gain a prayer seat.
+  return res.sendFile(path.join(__dirname,'public','index.html'));
+});
+// Do not allow direct access to the public files that bypass middleware.
+app.get(['/vao-chua.html','/trutri.html'],(req,res)=>res.redirect(302,'/'));
+app.use(express.static(path.join(__dirname,'public'),{index:false}));
+
 
 // HTTP JSON-RPC 2.0 Endpoint
 app.post('/rpc', async (req, res) => {
@@ -1386,52 +1402,79 @@ app.get('/api/state', (_req, res) => {
   res.json(getPublicState());
 });
 
-app.get('/api/chat', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, messages: sharedChat.slice(-60) });
-});
 
-app.post('/api/chat', (req, res) => {
-  const now = Date.now();
-  const origin = String(req.headers.origin || '');
-  if (origin) {
-    try {
-      if (new URL(origin).host !== req.headers.host) {
-        return res.status(403).json({ ok: false, error: 'Trang gửi tin không hợp lệ' });
-      }
-    } catch (_) {
-      return res.status(403).json({ ok: false, error: 'Nguồn gửi tin không hợp lệ' });
-    }
-  }
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const limit = chatRate.get(ip) || { last: 0, hourStart: now, count: 0 };
-  if (now - limit.hourStart > 3600000) { limit.count = 0; limit.hourStart = now; }
-  if (now - limit.last < 4000 || limit.count >= 25) {
-    return res.status(429).json({ ok: false, error: 'Gửi tối đa 1 tin/4 giây và 25 tin/giờ. Hãy thử lại sau.' });
-  }
-  const rawName = String(req.body?.name || '').trim();
-  const name = sanitizeUserName(rawName);
-  const content = cleanChatMessage(req.body?.text);
-  if (rawName.length < 2 || rawName.length > 26 || name === 'Thí Chủ Hữu Duyên' || !content) {
-    return res.status(400).json({ ok: false, error: 'Tên 2–26 ký tự và nội dung tối đa 180 ký tự; không gửi link/spam.' });
-  }
-  limit.last = now;
-  limit.count += 1;
-  chatRate.set(ip, limit);
-  if (chatRate.size > 2000) {
-    for (const [key, value] of chatRate) {
-      if (now - value.last > 3600000) chatRate.delete(key);
-    }
-  }
-  const message = appendSharedChat(name, content);
-  res.status(201).json({ ok: true, message });
+// All visitor actions use a cryptographically random HttpOnly session cookie.
+// This does NOT prove company employment; the Trụ trì chooses the classification.
+const sameOrigin=(req)=>{
+ const origin=req.headers.origin;
+ if(!origin)return false;
+ try{return new URL(origin).host===req.headers.host}catch{return false}
+};
+const guestOrigin=(req,res,next)=>{
+ if(!sameOrigin(req))return res.status(403).json({error:'Yêu cầu phải gửi từ website Chùa Linh Ứng'});
+ next();
+};
+app.get('/api/temple/me',(req,res)=>{
+ res.setHeader('Cache-Control','no-store');
+ const ses=room.identity(req,res);
+ res.json(room.status(ses));
 });
-
-app.delete('/api/chat', requireAdmin, (_req, res) => {
-  sharedChat.length = 0;
-  broadcastNotification('chat.sync', []);
-  res.json({ ok: true });
+app.post('/api/temple/join',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res),display=String(req.body?.name||'').trim();
+ const body=String(req.body?.comment||'').trim();
+ if(display.length<2||display.length>32||!body||body.length>180)return res.status(400).json({error:'Nhập tên 2–32 ký tự và bình luận có nội dung'});
+ if(ses.lastComment&&Date.now()-ses.lastComment<8000)return res.status(429).json({error:'Hãy chờ 8 giây trước khi gửi lại'});
+ ses.lastComment=Date.now();ses.name=sanitizeUserName(display);
+ const r=room.request({id:ses.id,displayName:ses.name,comment:body,source:'web'});
+ if(!r.ok)return res.status(429).json({error:r.reason});
+ res.json(room.status(ses));
 });
+app.post('/api/temple/leave',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res);
+ room.remove(ses.id);room.deny(ses.id);ses.lastComment=0;
+ res.json(room.status(ses));
+});
+app.get('/api/temple/chat',(req,res)=>{
+ res.setHeader('Cache-Control','no-store');
+ const ses=room.identity(req,res),data=room.chat(ses.id,authorized(req));
+ if(!data)return res.status(403).json({error:'Chờ Trụ trì duyệt mới được xem và gửi chat'});
+ res.json(data);
+});
+app.post('/api/temple/chat',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res);
+ const content=cleanChatMessage(req.body?.text);
+ if(!content)return res.status(400).json({error:'Tin nhắn không hợp lệ hoặc chứa liên kết/spam'});
+ const result=room.submit(ses.id,ses.name,content,'web');
+ if(!result.ok)return res.status(result.reason==='cooldown'?429:403).json({error:result.reason==='muted'?'Trụ trì đã tắt chat của bạn':result.reason==='cooldown'?'Gửi chậm lại, 3,5 giây một tin':'Chưa được Trụ trì duyệt'});
+ res.json({ok:true});
+});
+// Compatibility for the original stage's chat overlay. No guest can bypass approval.
+app.get('/api/chat',(req,res)=>{
+ const ses=room.identity(req,res),data=room.chat(ses.id,authorized(req));
+ if(!data)return res.status(403).json({error:'Chưa được Trụ trì duyệt'});
+ res.setHeader('Cache-Control','no-store');
+ res.json({ok:true,messages:data.messages.map(m=>({...m,timestamp:m.at}))});
+});
+app.post('/api/chat',guestOrigin,(req,res)=>{
+ const ses=room.identity(req,res),content=cleanChatMessage(req.body?.text);
+ if(!content)return res.status(400).json({error:'Nội dung không hợp lệ'});
+ const result=room.submit(ses.id,ses.name,content,'web');
+ if(!result.ok)return res.status(403).json({error:result.reason});
+ res.status(201).json({ok:true,message:result.message});
+});
+app.delete('/api/chat',requireAdmin,(_req,res)=>{room.clearChat();res.json({ok:true})});
+app.get('/api/trutri/room',requireAdmin,(_req,res)=>{res.setHeader('Cache-Control','no-store');res.json(room.moderation())});
+app.post('/api/trutri/decide',requireAdmin,(req,res)=>{
+ const id=String(req.body?.id||''),r=req.body?.allow?room.approve(id,req.body?.group):{ok:room.deny(id)};
+ if(!r.ok)return res.status(409).json({error:r.reason||'Yêu cầu không tồn tại hoặc đã được xử lý'});
+ broadcastNotification('temple.state',getPublicState());res.json({ok:true});
+});
+app.post('/api/trutri/remove',requireAdmin,(req,res)=>{
+ const ok=room.remove(req.body?.id);broadcastNotification('temple.state',getPublicState());res.json({ok});
+});
+app.post('/api/trutri/mute',requireAdmin,(req,res)=>res.json({ok:room.setMute(req.body?.id,Boolean(req.body?.muted))}));
+app.post('/api/trutri/chat/delete',requireAdmin,(req,res)=>res.json({ok:room.deleteMessage(req.body?.id)}));
+app.post('/api/trutri/chat/clear',requireAdmin,(_req,res)=>{room.clearChat();res.json({ok:true})});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ req, origin }, done) => {
@@ -1466,7 +1509,7 @@ wss.on('connection', (ws, req) => {
       params: getPublicState()
     })
   );
-  ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'chat.sync', params: sharedChat.slice(-60) }));
+  if(isAdmin)ws.send(JSON.stringify({jsonrpc:'2.0',method:'chat.sync',params:room.chat('',true).messages.map(m=>({...m,timestamp:m.at}))}));
 
   ws.on('message', async (raw) => {
     let msg;
