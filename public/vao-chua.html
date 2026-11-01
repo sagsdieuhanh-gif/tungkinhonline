@@ -27,6 +27,9 @@ footer{text-align:center;color:#b99d7b;font-size:12px;margin:30px auto;line-heig
 .abbot-entry-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#251302;background:linear-gradient(135deg,#ffe6a4,#d4a04e);border:1px solid #f8d788;box-shadow:0 5px 17px #0008;border-radius:10px;padding:11px 17px;font-size:14px;font-weight:800;text-decoration:none}
 .abbot-entry-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
 @media(max-width:780px){.grid{grid-template-columns:1fr}form.chatForm{flex-wrap:wrap}form.chatForm button{width:100%}.counter{float:none;display:block;width:max-content;margin-top:7px}}
+.chatline.abbot-message{background:linear-gradient(140deg,#765123ac,#492411e6);border:2px solid #f6cd72;border-radius:12px;padding:12px 13px;box-shadow:0 6px 20px #0006;margin:4px 0}
+.chatline.abbot-message .chatmeta{font-size:13px;font-weight:900;color:#ffe896;letter-spacing:.4px;margin-bottom:6px}
+.chatline.abbot-message .chattext{font-size:15px;font-weight:650;line-height:1.65;color:#fff4ce}
 </style></head><body><main>
 <nav class="visitor-topbar" aria-label="Quản trị"><a class="abbot-entry-btn" href="/trutri">🔐 TRỤ TRÌ · ĐĂNG NHẬP</a></nav>
 <div class="eyebrow">NAM MÔ A DI ĐÀ PHẬT</div><h1>SAGS CXR Tam Bảo</h1><p class="sub">Chánh điện người thật · Đọc kinh và lời nguyện · Trụ trì xét duyệt</p>
@@ -89,7 +92,7 @@ async function refresh(){
 async function loadChat(){
  try{const c=await api('/api/temple/chat');$('chatText').disabled=!!c.muted;$('chatSend').disabled=!!c.muted;$('chatInfo').textContent=c.muted?'Trụ trì đã tạm khóa quyền chat của bạn. Bạn vẫn đọc được tin nhắn.':'Mọi người đã được duyệt đều có thể thấy tin nhắn chung.';
  if(c.version!==chatVersion){chatVersion=c.version;const log=$('chatLog'),near=log.scrollHeight-log.scrollTop-log.clientHeight<60;log.replaceChildren();if(!c.messages.length){const n=document.createElement('span');n.className='muted';n.textContent='Chưa có lời nhắn.';log.append(n)}
- for(const m of c.messages){const row=document.createElement('div');row.className='chatline';const meta=document.createElement('div');meta.className='chatmeta';const d=new Date(m.at);meta.textContent=m.name+' · '+(m.source==='tiktok'?'TikTok LIVE':'Web')+' · '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});const t=document.createElement('div');t.className='chattext';t.textContent=m.text;row.append(meta,t);log.append(row)}if(near||c.messages.length<3)log.scrollTop=log.scrollHeight}}
+ for(const m of c.messages){const row=document.createElement('div');const isAbbot=m.role==='abbot'&&m.source==='abbot';row.className='chatline'+(isAbbot?' abbot-message':'');const meta=document.createElement('div');meta.className='chatmeta';const d=new Date(m.at);meta.textContent=(isAbbot?'👑 TRỤ TRÌ · ĐÃ XÁC THỰC':m.name+' · '+(m.source==='tiktok'?'TikTok LIVE':'Web'))+(m.automated?' · 🌸 LỜI CHÚC TỰ ĐỘNG':'')+' · '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});const t=document.createElement('div');t.className='chattext';t.textContent=m.text;row.append(meta,t);log.append(row)}if(near||c.messages.length<3)log.scrollTop=log.scrollHeight}}
  catch(e){$('chatInfo').textContent=e.message}
 }
 $('joinForm').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;$('joinSubmit').disabled=true;try{statusView(await api('/api/temple/join',{name:$('displayName').value,comment:$('joinText').value}))}catch(e){$('statusDetail').textContent=e.message}finally{busy=false;$('joinSubmit').disabled=false}});
