@@ -349,11 +349,14 @@ function saveState() {
 }
 
 function getLeaderboard(limit = 6) {
-  // Only individuals explicitly approved by the Trụ trì may occupy a seat.
+  // An attendee enters voluntarily; their FULL stable session key must be
+  // exposed for correct stage sprite matching, including named VIP seats.
+  // Only the private devotee-merit lookup uses the legacy 40-char key.
   return room.list().map(p=>{
-    const key=(p.id.startsWith('tt:')?p.id.slice(3):p.id).slice(0,40);
-    const d=state.devotees[key]||{};
-    return {name:p.name,uniqueId:key,avatar:d.avatar||p.avatar||'',merit:d.merit||0,incense:d.incense||0,lastWish:d.lastWish||'',group:p.group,joinedAt:p.joinedAt};
+    const identity=p.id.startsWith('tt:')?p.id.slice(3):p.id;
+    const savedKey=identity.slice(0,40);
+    const d=state.devotees[savedKey]||{};
+    return {name:p.name,uniqueId:identity,avatar:d.avatar||p.avatar||'',merit:d.merit||0,incense:d.incense||0,lastWish:d.lastWish||'',group:p.group,joinedAt:p.joinedAt};
   }).sort((a,b)=>b.merit-a.merit||a.joinedAt-b.joinedAt).slice(0,limit).map((d,index)=>({...d,rank:index+1}));
 }
 // Bộ lọc chặn ký tự lạ (Cuneiform 𒐫, Zalgo, Braille, ký tự spam) & từ ngữ phản cảm
