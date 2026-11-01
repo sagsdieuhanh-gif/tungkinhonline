@@ -618,6 +618,8 @@
 
   function formatEventSummary(ev) {
     switch (ev.type) {
+      case 'bowToBuddha':
+        return `🙏 <strong>${escapeHtml(ev.user)}</strong> thành tâm lễ Phật`;
       case 'burnIncense':
         return `🔥 <strong>${escapeHtml(ev.user)}</strong> dâng ${ev.count} nén nhang (+${ev.merit} CĐ)`;
       case 'strikeWoodenFish':
@@ -648,6 +650,18 @@
     }
 
     switch (ev.type) {
+      case 'bowToBuddha': {
+        const seat = Array.from(congregationHall?.querySelectorAll('.hall-seat') || [])
+          .find(node => node.dataset.visitorId === ev.uniqueId);
+        const image = seat?.querySelector('.devotee-sprite');
+        if (image) {
+          image.src = SPRITE_FRAMES.bowMid;
+          setTimeout(() => { if (image.isConnected) image.src = SPRITE_FRAMES.prostrateDeep; }, 280);
+          setTimeout(() => { if (image.isConnected) image.src = '/assets/devotee.png'; }, 1900);
+        }
+        particles.spawnFloatingMerit('🙏 ' + String(ev.user || 'Thí chủ') + ' lễ Phật', 540, 970, '#ffe8b4');
+        break;
+      }
       case 'setStageName': {
         displayManualName(ev.user, ev.wish);
         setNameStatus('✅ Tên sân khấu đã cập nhật: ' + ev.user);
@@ -810,6 +824,116 @@
   let publicChat = [];
   let joinedVisitorName = '';
   let sessionId = '';
+  let virtualBalance = 0;
+  let virtualEnvelope = null;
+  let virtualAlreadyClaimed = false;
+  let virtualBusy = false;
+  const virtualBalanceView = document.getElementById('virtualBalance');
+  const virtualEnvelopeStatus = document.getElementById('virtualEnvelopeStatus');
+  const virtualClaimButton = document.getElementById('btnClaimVirtual');
+  const virtualFeedback = document.getElementById('virtualFeedback');
+  const virtualWishInput = document.getElementById('virtualWish');
+  const ritualButtons = Array.from(document.querySelectorAll('[data-virtual-ritual]'));
+
+  function setVirtualFeedback(message, error = false) {
+    if (virtualFeedback) {
+      virtualFeedback.textContent = message;
+      virtualFeedback.style.color = error ? '#ffafa0' : '#b3efc2';
+    }
+  }
+  function updateVirtualUI() {
+    if (virtualBalanceView) virtualBalanceView.textContent = virtualBalance.toLocaleString('vi-VN') + ' lộc';
+    if (virtualEnvelopeStatus) {
+      virtualEnvelopeStatus.textContent = !virtualEnvelope
+        ? '🧧 Trụ trì chưa mở đợt tặng lộc.'
+        : virtualEnvelope.active
+          ? '🧧 Đang phát lộc may mắn: còn ' + virtualEnvelope.remaining.toLocaleString('vi-VN')
+            + '/' + virtualEnvelope.total.toLocaleString('vi-VN') + ' lộc. Đã có '
+            + virtualEnvelope.claimCount + ' lượt mở.'
+          : 'Đợt tặng lộc đã kết thúc. Bạn vẫn có thể dùng số lộc đã nhận.';
+    }
+    if (virtualClaimButton) {
+      virtualClaimButton.disabled = virtualBusy || !joinedVisitorName || !virtualEnvelope?.active || virtualAlreadyClaimed;
+      virtualClaimButton.textContent = virtualAlreadyClaimed ? '✅ ĐÃ MỞ LỘC ĐỢT NÀY'
+        : virtualEnvelope?.active ? '🧧 MỞ LỘC MAY MẮN' : '🧧 CHỜ TRỤ TRÌ PHÁT LỘC';
+    }
+  }
+  async function virtualPost(route, data) {
+    const result = await fetch(route, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const payload = await result.json();
+    if (!result.ok || !payload.ok) throw new Error(payload.error || 'Không thể thực hiện');
+    return payload;
+  }
+  async function refreshVirtualMe() {
+    if (!joinedVisitorName || !sessionId || isObs) return;
+    try {
+      const d = await virtualPost('/api/virtual/me', { sessionId });
+      virtualBalance = Number(d.balance) || 0;
+      virtualEnvelope = d.envelope;
+      virtualAlreadyClaimed = Boolean(d.alreadyClaimed);
+      updateVirtualUI();
+    } catch (error) {
+      setVirtualFeedback('Không tải được số dư lộc: ' + error.message, true);
+    }
+  }
+  document.getElementById('btnClaimVirtual')?.addEventListener('click', async () => {
+    if (virtualBusy || !joinedVisitorName) return;
+    virtualBusy = true;
+    updateVirtualUI();
+    try {
+      const d = await virtualPost('/api/virtual/claim', { sessionId });
+      virtualBalance = d.balance;
+      virtualEnvelope = d.envelope;
+      virtualAlreadyClaimed = true;
+      setVirtualFeedback('🎊 Chúc mừng! Bạn mở được ' + d.amount + ' lộc ảo, có thể dùng ngay để hành lễ.');
+    } catch (error) {
+      setVirtualFeedback('❌ ' + error.message, true);
+      await refreshVirtualMe();
+    } finally {
+      virtualBusy = false;
+      updateVirtualUI();
+    }
+  });
+  ritualButtons.forEach(button => button.addEventListener('click', async () => {
+    if (virtualBusy) return;
+    if (!joinedVisitorName) {
+      setVirtualFeedback('Hãy nhập tên để vào chánh điện trước.', true);
+      entryOverlay?.classList.remove('is-hidden');
+      return;
+    }
+    const ritual = button.dataset.virtualRitual;
+    const wish = String(virtualWishInput?.value || '').trim();
+    virtualBusy = true;
+    ritualButtons.forEach(b => { b.disabled = true; });
+    updateVirtualUI();
+    try {
+      // A user gesture unlocks effects; the server is authoritative for balance.
+      try { audio.ensureContext(); } catch (_) {}
+      const d = await virtualPost('/api/virtual/ritual', { sessionId, ritual, wish });
+      virtualBalance = d.balance;
+      const label = button.textContent.trim().replace(/\s+/g, ' ');
+      setVirtualFeedback('🙏 Đã thực hiện ' + label + '. ' +
+        (d.cost ? 'Đã dùng ' + d.cost + ' lộc ảo.' : 'Nghi thức này miễn phí.'));
+    } catch (error) {
+      setVirtualFeedback('❌ ' + error.message, true);
+      await refreshVirtualMe();
+    } finally {
+      virtualBusy = false;
+      ritualButtons.forEach(b => { b.disabled = false; });
+      updateVirtualUI();
+    }
+  }));
+  document.getElementById('quickVirtualOpen')?.addEventListener('click', () => {
+    document.getElementById('virtualOfferings')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  fetch('/api/virtual/status', { cache: 'no-store' }).then(r => r.json()).then(d => {
+    if (d.ok) { virtualEnvelope = d.envelope; updateVirtualUI(); }
+  }).catch(() => {});
+  updateVirtualUI();
 
   try {
     const savedName = localStorage.getItem('temple_shared_chat_name') || '';
@@ -859,6 +983,7 @@
       entryOverlay?.classList.add('is-hidden');
       if (entryError) entryError.textContent = '';
       setChatFeedback('🙏 Chào mừng ' + joinedVisitorName + ' vào chánh điện! Bạn có thể trò chuyện với mọi người.');
+      await refreshVirtualMe();
     } catch (error) {
       if (entryError) entryError.textContent = error.message || 'Không thể vào chùa. Vui lòng thử lại.';
     } finally {
@@ -1023,7 +1148,13 @@
           setChatHistory(msg.params);
         } else if (msg.method === 'chat.message') {
           appendChatMessage(msg.params);
+        } else if (msg.method === 'virtual.updated') {
+          virtualEnvelope = msg.params?.envelope || null;
+          updateVirtualUI();
+          refreshVirtualMe();
         } else if (msg.method === 'temple.state') {
+          virtualEnvelope = msg.params?.virtualEnvelope || null;
+          updateVirtualUI();
           updateUIState(msg.params);
         } else if (msg.method === 'temple.event') {
           if (msg.params?.state) updateUIState(msg.params.state);
