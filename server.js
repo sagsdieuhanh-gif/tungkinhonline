@@ -311,7 +311,8 @@ const room=createTempleRoom({approvedNames:state.approvedDharmaNames,onRegistryC
     role:params.role||null,automated:Boolean(params.automated),timestamp:params.at
   });
   if(method==='temple.chat-sync')broadcastNotification('chat.sync',(params.messages||[]).map(m=>({
-    id:m.id,name:m.name,text:m.text,source:m.source,timestamp:m.at
+    id:m.id,name:m.name,text:m.text,source:m.source,
+    role:m.role||null,automated:Boolean(m.automated),timestamp:m.at
   })));
 }});
 
@@ -1616,7 +1617,14 @@ wss.on('connection', (ws, req) => {
       params: getPublicState()
     })
   );
-  if(isAdmin)ws.send(JSON.stringify({jsonrpc:'2.0',method:'chat.sync',params:room.chat('',true).messages.map(m=>({...m,timestamp:m.at}))}));
+  // The temple stage is public: send sanitized chat history to all viewers,
+  // including the Trụ trì's verified messages. Never send internal senderIds.
+  ws.send(JSON.stringify({jsonrpc:'2.0',method:'chat.sync',
+    params:room.chat('',true).messages.slice(-60).map(m=>({
+      id:m.id,name:m.name,text:m.text,source:m.source,
+      role:m.role||null,automated:Boolean(m.automated),timestamp:m.at
+    }))
+  }));
 
   ws.on('message', async (raw) => {
     let msg;
