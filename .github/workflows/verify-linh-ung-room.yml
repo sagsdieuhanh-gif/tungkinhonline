@@ -39,6 +39,6 @@ jobs:
           assert(server.includes("app.post('/api/trutri/decide',requireAdmin"));
           assert(server.includes("app.get('/api/temple/chat'"));
           assert(live.includes("if (!viewer) return '';"));
-          assert(page.includes('Không cần'));
+          assert(/không cần tạo tài khoản/i.test(page));
           console.log('PASS: protected stage, administrator, no fake viewer sprites');
           NODE
