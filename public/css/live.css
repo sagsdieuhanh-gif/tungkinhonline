@@ -1531,3 +1531,45 @@ body:not(.admin-mode):not(.obs-mode) .quick-chat-bar {
     height: 270px;
   }
 }
+
+
+/* VIRTUAL LUCKY ENVELOPES — public ritual controls, not real currency. */
+.virtual-offerings {
+  display:flex; flex-direction:column; gap:10px;
+  background:linear-gradient(140deg,rgba(83,30,16,.7),rgba(34,12,6,.96));
+  border:1.5px solid rgba(252,191,78,.6);
+  border-radius:15px; padding:14px 12px; color:#ffeac5;
+}
+.virtual-title {font-weight:800;font-size:14px;line-height:1.5;color:#ffe28c;}
+.virtual-balance-row {
+ display:flex;justify-content:space-between;gap:10px;align-items:center;
+ background:rgba(15,4,3,.7);border-radius:8px;padding:10px;
+ font-size:12px;
+}
+.virtual-balance-row strong {font-size:24px;color:#ffe39c;font-variant-numeric:tabular-nums;}
+.virtual-envelope-status {font-size:12px;color:#f4d8a2;line-height:1.5;}
+.virtual-claim-btn {
+ display:block;width:100%;border:1px solid #ffeb9b;border-radius:10px;
+ padding:12px 10px;font-size:15px;font-weight:800;cursor:pointer;
+ color:#321406;background:linear-gradient(125deg,#ffebaa,#ebae4f);
+ box-shadow:0 3px 12px #0004;
+}
+.virtual-claim-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.virtual-disclaimer{font-size:10px;color:#d5bea1;line-height:1.55}
+.virtual-offerings label{font-size:12px;color:#efd9ad;font-weight:600}
+#virtualWish{width:100%;border:1px solid rgba(233,190,90,.45);border-radius:8px;
+ background:#130705;padding:10px;color:#fff7e8;font-size:14px;user-select:text}
+.virtual-ritual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.virtual-ritual-grid button{
+ border:1px solid rgba(244,193,80,.5);background:#3e1c10;color:#fff1c8;
+ border-radius:9px;padding:10px 5px;cursor:pointer;text-align:center;
+ font:600 12px/1.4 'Be Vietnam Pro',sans-serif;
+}
+.virtual-ritual-grid button:disabled{opacity:.45;cursor:wait}
+.virtual-ritual-grid small{display:block;color:#e7c28a;font-size:10px;margin-top:2px}
+.virtual-feedback{font-size:12px;line-height:1.5;color:#b3efc2;min-height:30px;overflow-wrap:anywhere}
+#quickVirtualOpen{background:#6c3b12;color:#fff1ba}
+@media(max-width:480px){
+  #quickVirtualOpen{padding:8px 5px;font-size:11px}
+  .quick-chat-compose{gap:4px}
+}
