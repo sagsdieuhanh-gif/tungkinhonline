@@ -905,6 +905,13 @@ async function connectTikTokLive(usernameOrUrl) {
     const { user, uniqueId, avatar } = extractUserFromEvent(data);
     const commentText = data?.content || data?.comment || '';
     console.log(`[TikTok Chat] ${user}: ${commentText}`);
+    const publicText = cleanChatMessage(commentText);
+    const lastChat = tiktokChatRate.get(uniqueId || user) || 0;
+    if (publicText && Date.now() - lastChat >= 1500) {
+      tiktokChatRate.set(uniqueId || user, Date.now());
+      if (tiktokChatRate.size > 500) tiktokChatRate.clear();
+      appendSharedChat(user, publicText, 'tiktok');
+    }
     parseViewerComment(commentText, user, uniqueId, avatar);
   });
 
@@ -1203,10 +1210,44 @@ const onlineTts = {
   }
 };
 
+
+// Phòng chat chung: người xem trang web và bình luận TikTok chung một luồng.
+// Giữ tối đa 80 tin trong RAM (Render Free không có ổ đĩa lưu trữ bền vững).
+const sharedChat = [];
+const chatRate = new Map();
+const tiktokChatRate = new Map();
+let chatSequence = 0;
+
+function appendSharedChat(name, text, source = 'web') {
+  const message = {
+    id: 'chat_' + Date.now() + '_' + (++chatSequence),
+    name: sanitizeUserName(name),
+    text: String(text).trim().slice(0, 180),
+    source: source === 'tiktok' ? 'tiktok' : 'web',
+    timestamp: new Date().toISOString()
+  };
+  sharedChat.push(message);
+  if (sharedChat.length > 80) sharedChat.shift();
+  broadcastNotification('chat.message', message);
+  return message;
+}
+function cleanChatMessage(raw) {
+  const value = String(raw || '').normalize('NFKC')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!value || value.length > 180) return null;
+  if (isBlockedSpamOrToxic(value)) return null;
+  if (/https?:\/\/|www\.|t\.me\/|discord\.gg\/|(?:\S+@[\w.-]+\.[a-z]{2,})/i.test(value)) return null;
+  // Avoid long repeated-character spam.
+  if (/(.)\1{8,}/u.test(value)) return null;
+  return value;
+}
+
 // ============================================================================
 // 8. EXPRESS + WEBSOCKET SERVER
 // ============================================================================
 const app = express();
+// Render uses one reverse proxy hop; use the actual visitor IP for rate limits.
+app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/tts-cache', express.static(TTS_CACHE_DIR, { maxAge: '7d' }));
@@ -1345,6 +1386,53 @@ app.get('/api/state', (_req, res) => {
   res.json(getPublicState());
 });
 
+app.get('/api/chat', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, messages: sharedChat.slice(-60) });
+});
+
+app.post('/api/chat', (req, res) => {
+  const now = Date.now();
+  const origin = String(req.headers.origin || '');
+  if (origin) {
+    try {
+      if (new URL(origin).host !== req.headers.host) {
+        return res.status(403).json({ ok: false, error: 'Trang gửi tin không hợp lệ' });
+      }
+    } catch (_) {
+      return res.status(403).json({ ok: false, error: 'Nguồn gửi tin không hợp lệ' });
+    }
+  }
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const limit = chatRate.get(ip) || { last: 0, hourStart: now, count: 0 };
+  if (now - limit.hourStart > 3600000) { limit.count = 0; limit.hourStart = now; }
+  if (now - limit.last < 4000 || limit.count >= 25) {
+    return res.status(429).json({ ok: false, error: 'Gửi tối đa 1 tin/4 giây và 25 tin/giờ. Hãy thử lại sau.' });
+  }
+  const rawName = String(req.body?.name || '').trim();
+  const name = sanitizeUserName(rawName);
+  const content = cleanChatMessage(req.body?.text);
+  if (rawName.length < 2 || rawName.length > 26 || name === 'Thí Chủ Hữu Duyên' || !content) {
+    return res.status(400).json({ ok: false, error: 'Tên 2–26 ký tự và nội dung tối đa 180 ký tự; không gửi link/spam.' });
+  }
+  limit.last = now;
+  limit.count += 1;
+  chatRate.set(ip, limit);
+  if (chatRate.size > 2000) {
+    for (const [key, value] of chatRate) {
+      if (now - value.last > 3600000) chatRate.delete(key);
+    }
+  }
+  const message = appendSharedChat(name, content);
+  res.status(201).json({ ok: true, message });
+});
+
+app.delete('/api/chat', requireAdmin, (_req, res) => {
+  sharedChat.length = 0;
+  broadcastNotification('chat.sync', []);
+  res.json({ ok: true });
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', verifyClient: ({ req, origin }, done) => {
   if (!origin) return done(true);
@@ -1378,6 +1466,7 @@ wss.on('connection', (ws, req) => {
       params: getPublicState()
     })
   );
+  ws.send(JSON.stringify({ jsonrpc: '2.0', method: 'chat.sync', params: sharedChat.slice(-60) }));
 
   ws.on('message', async (raw) => {
     let msg;
