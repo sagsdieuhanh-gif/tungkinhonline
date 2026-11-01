@@ -24,6 +24,19 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.match(rootMarkup,/!Boolean\(alreadyClaimed\)/,'effect requires unclaimed personal status');
  assert.match(rootMarkup,/!document.hidden/,'animation does not run in background');
  assert.match(rootMarkup,/locallyClaimedRounds.add\(luckyRound\)/,'claim hides rain immediately');
+ assert.ok(rootMarkup.includes("document.createElement('button')"),'envelopes are clickable buttons');
+ assert.ok(rootMarkup.includes("envelope.addEventListener('click',claimLuckyEnvelope"),'tap any envelope to claim');
+ assert.ok(rootMarkup.includes("function claimLuckyEnvelope()"),'envelope delegates to server claim');
+ for(const ritual of ['bow','woodenFish','incense','bell','lantern','fortune','lotus','fruit','lamp']){
+   assert.ok(rootMarkup.includes('data-loc-ritual="'+ritual+'"'),'Missing guest ritual '+ritual);
+ }
+ const stageScript=await get('/js/live.js');
+ assert.equal(stageScript.status,200);
+ const stageSource=await stageScript.text();
+ assert.ok(stageSource.includes('animateExactlyThisDevotee(ev)'),'Visitor must animate by identity');
+ assert.ok(stageSource.includes('Đảnh lễ Tam Bái'),'Visitors use full three-bow ceremony');
+ assert.ok(!stageSource.includes("const person = congregationHall?.querySelector('.hall-seat')"),'Never bow unrelated first seat');
+
 
  assert.equal((await get('/index.html')).status,302);
  assert.equal((await get('/chandien')).status,302);
@@ -109,6 +122,43 @@ function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
  assert.equal((await post('/api/trutri/loc/close',{},adminCookie)).status,200);
  assert.equal((await post('/api/trutri/loc/open',{total:20},adminCookie)).status,200);
  assert.equal((await post('/api/temple/loc/claim',{},cookie)).status,200);
+ // Grant enough random virtual lộc across fresh rounds to cover all offerings.
+ let balance=(await (await get('/api/temple/loc/status',{headers:{Cookie:cookie}})).json()).balance;
+ let rounds=0;
+ while(balance<120 && rounds++<50){
+   assert.equal((await post('/api/trutri/loc/close',{},adminCookie)).status,200);
+   assert.equal((await post('/api/trutri/loc/open',{total:100000},adminCookie)).status,200);
+   const awarded=await post('/api/temple/loc/claim',{},cookie);
+   assert.equal(awarded.status,200);
+   balance=(await awarded.json()).balance;
+ }
+ assert.ok(balance>=120,'Could not fund all virtual ritual tests');
+ const rituals=[
+   ['bow',0,'bowToBuddha'],['woodenFish',1,'strikeWoodenFish'],
+   ['incense',5,'burnIncense'],['bell',10,'ringBell'],
+   ['lantern',10,'sendPrayer'],['fortune',15,'drawFortune'],
+   ['lotus',20,'offerGift'],['fruit',25,'offerGift'],['lamp',15,'offerGift']
+ ];
+ for(const [action,cost,eventType] of rituals){
+   await sleep(1500); // server limits rapid multi-ritual actions
+   const result=await post('/api/temple/loc/ritual',{action,wish:'Gia đình an vui'},cookie);
+   assert.equal(result.status,200,'Visitor ritual '+action+' failed');
+   const payload=await result.json();
+   assert.equal(payload.action,action);
+   assert.equal(payload.cost,cost);
+   assert.equal(payload.balance,balance-cost,'Unexpected debit on '+action);
+   balance=payload.balance;
+   const state=(await (await get('/api/state')).json());
+   const latest=state.recentEvents[0];
+   assert.equal(latest.type,eventType,'Wrong stage event for '+action);
+   assert.equal(latest.user,'Phật tử A','Guest action must use visitor name');
+   assert.equal(latest.uniqueId,id,'Guest action must use session identity');
+   if(['lotus','fruit','lamp'].includes(action)){
+     assert.equal(latest.giftType,action);
+     assert.equal(latest.coins,0,'Do not generate real TikTok coins');
+   }
+ }
+ assert.ok(balance>=0,'Wallet cannot become negative');
  let chat=await post('/api/temple/chat',{text:'Chào mọi người 🙏'},cookie);assert.equal(chat.status,200);
  let state=await get('/api/temple/chat',{headers:{Cookie:cookie}});
  let messages=(await state.json()).messages;
