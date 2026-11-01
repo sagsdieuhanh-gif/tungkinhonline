@@ -788,7 +788,7 @@
       const line = document.createElement('div');
       line.className = 'live-chat-overlay-line' + (verified ? ' abbot-chat' : '');
       const author = document.createElement('strong');
-      author.textContent = verified ? '👑 TRỤ TRÌ TRUNG KIÊN' + (m.automated ? ' · CHÚC TỰ ĐỘNG: ' : ': ')
+      author.textContent = verified ? '👑 Trụ Trì Trung Kiên' + (m.automated ? ' · CHÚC TỰ ĐỘNG: ' : ': ')
         : ((m.source === 'tiktok' ? '♪ ' : '') + String(m.name || 'Phật tử').slice(0, 20) + ': ');
       const txt = document.createElement('span');
       txt.textContent = String(m.text || '').slice(0, 180);
