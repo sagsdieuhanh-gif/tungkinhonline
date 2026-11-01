@@ -222,8 +222,15 @@
       <div class="dock-section">
         <div class="dock-section-title">📡 Kết Nối Phòng TikTok Live</div>
         <div class="dock-input-row">
-          <input type="text" id="inputTikTokUser" class="dock-input" value="" placeholder="Nhập @username hoặc link TikTok Live..." />
+          <input type="text" id="inputTikTokUser" class="dock-input" value="" placeholder="Nhập @username của tài khoản đang LIVE..." autocomplete="off" />
           <button class="dock-btn gold" id="btnConnectTikTok">Kết Nối</button>
+        </div>
+        <div id="tiktokConnectStatus" role="status" aria-live="polite" style="line-height:1.5;font-size:13px;margin:8px 0;color:#e6d4ad">
+          Nhập tên tài khoản đang phát TikTok LIVE rồi bấm Kết Nối.
+        </div>
+        <div style="font-size:12px;line-height:1.5;margin:4px 0 12px">
+          <a href="/login?next=%2F" style="color:#f8d383;text-decoration:underline">🔐 Đăng nhập điều khiển TikTok</a>
+          <div style="opacity:.85">Chỉ nhận bình luận, tim và quà tặng; không chiếu video TikTok.</div>
         </div>
         <button class="dock-btn" id="btnToggleAutoSim">
           🤖 Tự động Giả lập Người Xem: TẮT
