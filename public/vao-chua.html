@@ -1,5 +1,5 @@
 <!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Xin vào SAGS CXR Tam Bảo</title><meta name="theme-color" content="#19100c">
+<title>SAGS CXR Tam Bảo · Chánh điện chung</title><meta name="theme-color" content="#19100c">
 <style>
 *{box-sizing:border-box}body{margin:0;background:#110c0a;color:#f4e5c8;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100dvh}
 body:before{content:"";position:fixed;inset:0;background:linear-gradient(180deg,#150b0885,#110c0afa 70%),url('/assets/amitabha_stage.jpg') center 35%/cover;z-index:-1}
@@ -30,16 +30,54 @@ footer{text-align:center;color:#b99d7b;font-size:12px;margin:30px auto;line-heig
 .chatline.abbot-message{background:linear-gradient(140deg,#765123ac,#492411e6);border:2px solid #f6cd72;border-radius:12px;padding:12px 13px;box-shadow:0 6px 20px #0006;margin:4px 0}
 .chatline.abbot-message .chatmeta{font-size:13px;font-weight:900;color:#ffe896;letter-spacing:.4px;margin-bottom:6px}
 .chatline.abbot-message .chattext{font-size:15px;font-weight:650;line-height:1.65;color:#fff4ce}
+
+/* Entrance-first responsive layout. The entrance card is the immediate focus. */
+main{padding-top:max(12px,env(safe-area-inset-top));max-width:1140px}
+.visitor-topbar{margin-bottom:8px}
+.abbot-entry-btn{font-weight:850;box-shadow:0 3px 14px #0007}
+#joinForm{display:grid;gap:5px}
+#joinSubmit{font-size:16px;padding:15px;min-height:49px;width:100%;margin-top:7px}
+#joinForm label{font-size:13px;font-weight:700;color:#ffe1a2}
+#displayName,#joinText{font-size:16px}
+#statusArea{margin-bottom:0}
+.chat-window{
+ position:fixed;right:10px;bottom:max(68px,env(safe-area-inset-bottom));
+ width:min(400px,calc(100vw - 20px));height:min(570px,70dvh);
+ z-index:9100;display:flex;flex-direction:column;
+ background:#251510;border:2px solid #d6a75b;border-radius:16px;
+ padding:12px;box-shadow:0 12px 42px #000b;overflow:hidden;
+ touch-action:auto;
+}
+.chat-window.chat-collapsed{display:none}
+.chat-handle{flex:none;cursor:grab;touch-action:none;user-select:none;
+ display:flex;align-items:center;justify-content:space-between;gap:6px;
+ padding:7px;border-radius:9px;background:#5b361a;color:#ffe4a0;font-weight:800}
+.chat-handle.dragging{cursor:grabbing}
+.chat-close{padding:6px 10px;min-height:32px}
+.chat-window .chatlog{flex:1;min-height:80px;height:auto;overflow-y:auto}
+.chat-window .chatForm{flex:none;flex-wrap:nowrap}
+.chat-window .chatForm button{width:auto}
+.chat-toggle{position:fixed;bottom:max(8px,env(safe-area-inset-bottom));
+ right:12px;z-index:9150;border:1.5px solid #ffdd93;
+ background:#5f3516;box-shadow:0 5px 20px #0009;padding:11px 15px}
+.chat-toggle[hidden]{display:none}
+@media(max-width:500px){
+ .chat-window{bottom:max(66px,env(safe-area-inset-bottom));height:min(490px,64dvh)}
+ .chat-window .chatForm button{padding:10px}
+ .eyebrow{letter-spacing:.12em}
+ h1{font-size:clamp(30px,8vw,42px)}
+ .card{padding:16px}
+}
 </style></head><body><main>
 <nav class="visitor-topbar" aria-label="Quản trị"><a class="abbot-entry-btn" href="/trutri">🔐 TRỤ TRÌ · ĐĂNG NHẬP</a></nav>
-<div class="eyebrow">NAM MÔ A DI ĐÀ PHẬT</div><h1>SAGS CXR Tam Bảo</h1><p class="sub">Chánh điện người thật · Đọc kinh và lời nguyện · Trụ trì xét duyệt</p>
+<div class="eyebrow">NAM MÔ A DI ĐÀ PHẬT</div><h1>SAGS CXR Tam Bảo</h1><p class="sub">🪷 Chánh điện mở cửa · Người thật tham gia · Trụ trì đồng hành</p>
 <div class="card">
-<span id="headCount" class="counter">0 / 100 vị trí</span><h2>🙏 Xin vào chánh điện</h2>
-<p>Nhân viên công ty và khách TikTok đều có thể tham gia mà <b>không cần tạo tài khoản</b>. Bình luận <b>“Xin vô”</b>, <b>“Nam mô A Di Đà Phật”</b> hoặc <b>bất kỳ lời nhắn nào</b> để gửi yêu cầu. Chỉ khi Trụ trì bấm duyệt, nhân vật mới xuất hiện.</p>
+<span id="headCount" class="counter">0 / 100 vị trí</span><h2>🙏 Vào chánh điện ngay</h2>
+<p><strong>Chánh điện mở cửa tự do, không cần Trụ trì duyệt.</strong> Chỉ cần nhập tên/pháp danh và bấm VÀO CHÁNH ĐIỆN. Mỗi người vào mới xuất hiện trên sân khấu; người dùng pháp danh cũ có thể nhập lại để vào lần sau. Không cần tài khoản hay mật khẩu.</p>
 <form id="joinForm"><label for="displayName">Tên hoặc pháp danh</label><input id="displayName" required minlength="2" maxlength="32" placeholder="Nhập tên / pháp danh">
-<label for="joinText">Bình luận gửi Trụ trì</label><input id="joinText" required maxlength="180" placeholder="Nam mô A Di Đà Phật">
-<button class="primary" type="submit" id="joinSubmit">GỬI BÌNH LUẬN XIN VÀO</button></form>
-<div class="status" id="statusArea"><strong id="statusTitle">Chưa gửi yêu cầu</strong><div id="statusDetail">Điền tên và lời nhắn để xin vào.</div></div>
+<label for="joinText">Lời chào hoặc lời nguyện (không bắt buộc)</label><input id="joinText" maxlength="180" placeholder="Nam mô A Di Đà Phật…">
+<button class="primary" type="submit" id="joinSubmit">🪷 VÀO CHÁNH ĐIỆN NGAY</button></form>
+<div class="status" id="statusArea"><strong id="statusTitle">Sẵn sàng vào chánh điện</strong><div id="statusDetail">Nhập pháp danh, bấm VÀO CHÁNH ĐIỆN NGAY. Không phải chờ duyệt.</div></div>
 <button type="button" id="leaveBtn" class="hidden">Rời chánh điện</button>
 </div>
 <section id="inside" class="hidden">
@@ -59,28 +97,31 @@ footer{text-align:center;color:#b99d7b;font-size:12px;margin:30px auto;line-heig
 <button type="button" data-loc-ritual="bell">🔔 Thỉnh chuông <small>10 lộc</small></button>
 <button type="button" data-loc-ritual="fortune">🎋 Xin xăm <small>15 lộc</small></button>
 </div>
-<div id="locGuestStatus" role="status" aria-live="polite">Chỉ người được Trụ trì duyệt mới mở lộc và hành lễ.</div>
+<div id="locGuestStatus" role="status" aria-live="polite">Người đã vào chánh điện có thể mở lộc khi Trụ trì phát.</div>
 </div>
 <div class="grid">
 <div class="card"><h2>🪷 Chánh điện và đọc kinh</h2><p class="muted">Bấm vào hình chánh điện để bật âm thanh nếu trình duyệt đang chặn tự phát.</p><iframe title="Chánh điện SAGS CXR Tam Bảo" id="templeFrame" class="stageframe" loading="lazy" allow="autoplay" referrerpolicy="same-origin"></iframe></div>
-<div class="card"><h2>💬 Trò chuyện trong chánh điện</h2><p class="muted">Tin nhắn từ người đã được duyệt trên website và TikTok LIVE. Trụ trì có quyền xóa tin, tắt chat.</p><div id="chatLog" class="chatlog" role="log"><span class="muted">Chưa có tin nhắn.</span></div>
+<div class="card chat-window chat-collapsed" id="visitorChatDock">
+<div class="chat-handle" id="visitorChatHandle"><span>💬 Chat chung · Kéo để di chuyển</span><button type="button" class="chat-close" id="visitorChatClose">−</button></div>
+<h2>💬 Trò chuyện trong chánh điện</h2><p class="muted">Phòng chat chung người xem và TikTok LIVE. Trụ trì quản lý tin nhắn.</p><div id="chatLog" class="chatlog" role="log"><span class="muted">Chưa có tin nhắn.</span></div>
 <form id="chatForm" class="chatForm"><input id="chatText" maxlength="180" placeholder="Gửi lời chào, niệm Phật..." aria-label="Tin nhắn phòng chat" required><button type="submit" class="primary" id="chatSend">GỬI</button></form><p id="chatInfo" class="muted"></p>
 <h2>Phật tử đang có mặt</h2><div id="members" class="members"></div></div>
 </div></section>
-<div class="card"><h2>📜 Quy định tham gia</h2><p>Không có nhân vật giả. Mọi người chỉ xuất hiện khi được Trụ trì chấp thuận. Tối đa 100 vị trí; một trình duyệt dùng một phiên xin vào. Không đăng công khai số điện thoại, thông tin thanh toán hoặc dữ liệu cá nhân. Coin do Trụ trì cấp riêng; quà TikTok không tự động cộng coin nội bộ.</p></div>
-<footer><a href="/trutri" style="display:inline-block;color:#ffe0a1;font-weight:700;margin-bottom:14px;padding:10px 14px;border:1px solid #b58a4c;border-radius:10px;text-decoration:none">🔐 Đăng nhập Trụ trì · Duyệt người xin vào</a><div>SAGS CXR Tam Bảo · Bản thử nghiệm đồng bộ phòng 100 người. Phần quản trị chỉ dành cho Trụ trì.</div></footer>
-</main><script>
+<button type="button" id="visitorChatToggle" class="chat-toggle" hidden aria-expanded="false">💬 Mở phòng chat</button>
+<div class="card"><h2>📜 Quy định tham gia</h2><p>Không có nhân vật giả; mọi người vào chùa được xuất hiện ngay, tối đa 100 vị trí. Nhập đúng pháp danh để trở lại. Một pháp danh chỉ sử dụng được cho một người tại cùng thời điểm; tên không phải cơ chế xác minh danh tính. Không chia sẻ số điện thoại, thông tin thanh toán hoặc dữ liệu cá nhân. Lộc lễ chỉ là điểm ảo, không quy đổi tiền hoặc xu TikTok.</p></div>
+<footer><a href="/trutri" style="display:inline-block;color:#ffe0a1;font-weight:700;margin-bottom:14px;padding:10px 14px;border:1px solid #b58a4c;border-radius:10px;text-decoration:none">🔐 TRỤ TRÌ · QUẢN LÝ CHÁNH ĐIỆN</a><div>SAGS CXR Tam Bảo · Chánh điện mở cửa tự do tối đa 100 người · Trụ trì có thể quản lý khi cần.</div></footer>
+</main><script src="/js/chat-dock.js"></script><script>
 'use strict';
 const $=id=>document.getElementById(id);let currentStatus='',currentVersion=-1,chatVersion=-1,busy=false;
 async function api(path,data,method){const options={credentials:'same-origin',cache:'no-store'};if(data!==undefined){options.method=method||'POST';options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(data)}const r=await fetch(path,options);const v=await r.json().catch(()=>({error:'Không đọc được phản hồi'}));if(!r.ok)throw Error(v.error||'HTTP '+r.status);return v}
 function statusView(x){
  const now=x.status;currentStatus=now;
  $('headCount').textContent=x.count+' / '+x.capacity+' vị trí';
- $('inside').classList.toggle('hidden',now!=='approved');$('leaveBtn').classList.toggle('hidden',now!=='approved'&&now!=='pending');
+ $('inside').classList.toggle('hidden',now!=='approved');$('visitorChatToggle').hidden=now!=='approved';$('leaveBtn').classList.toggle('hidden',now!=='approved'&&now!=='pending');
  $('joinForm').classList.toggle('hidden',now==='approved'||now==='pending');
- const titles={new:'Chưa gửi yêu cầu',pending:'⏳ Đang chờ Trụ trì duyệt',approved:'🙏 Đã được Trụ trì cho vào chánh điện','not-approved':'Chưa được duyệt'};
+ const titles={new:'Sẵn sàng vào chánh điện',pending:'Đang vào chánh điện',approved:'🪷 Đã vào chánh điện','not-approved':'Mời vào chánh điện'};
  $('statusTitle').textContent=titles[now]||titles.new;
- $('statusDetail').textContent=now==='pending'?'Yêu cầu đã được gửi. Bạn chưa có nhân vật; hãy giữ trang này mở để nhận kết quả.':now==='approved'?'Mời an tọa. Bạn có thể xem chánh điện, nghe đọc kinh và trò chuyện cùng những người đã được duyệt.':now==='not-approved'?'Bạn có thể gửi lại yêu cầu khi Trụ trì cho phép.':'Bình luận bất kỳ nội dung nào, không cần tạo tài khoản.';
+ $('statusDetail').textContent=now==='pending'?'Đang đưa bạn vào chánh điện…':now==='approved'?'Nam mô A Di Đà Phật. Bạn đã vào chánh điện, có thể nghe kinh, nhận lộc và chat chung.':'Chỉ cần nhập pháp danh, bấm VÀO CHÁNH ĐIỆN NGAY; không cần chờ duyệt.';
  const members=$('members');if(x.version!==currentVersion){currentVersion=x.version;members.replaceChildren();(x.people||[]).forEach(p=>{const s=document.createElement('span');s.className='member';s.textContent=p.name+' · '+(p.group==='internal'?'Nội bộ':'TikTok');members.append(s)})}
  if(now==='approved'&&!$('templeFrame').src)$('templeFrame').src='/chandien?obs=1';
 }
@@ -139,6 +180,8 @@ document.querySelectorAll('[data-loc-ritual]').forEach(b=>b.onclick=async()=>{
  }
 });
 $('leaveBtn').addEventListener('click',async()=>{try{await api('/api/temple/leave',{});$('templeFrame').src='';chatVersion=-1;await refresh()}catch(e){$('statusDetail').textContent=e.message}});
+window.setupMovableTempleChat({panelId:'visitorChatDock',headerId:'visitorChatHandle',
+ toggleId:'visitorChatToggle',closeId:'visitorChatClose',storeKey:'visitor'});
 setInterval(refresh,5000);setInterval(refreshLoc,4000);
 setInterval(()=>{if(currentStatus==='approved'&&!document.hidden)loadChat()},2700);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});refresh();
 </script></body></html>
