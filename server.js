@@ -256,6 +256,7 @@ const DEFAULT_STATE = {
     dragon: 1
   },
   devotees: {},
+  virtualFunds: { wallets: {}, envelope: null, roundCounter: 0 },
   manualDisplayName: '',
   manualDisplayWish: '',
   recentEvents: [],
@@ -286,6 +287,7 @@ function loadState() {
         ...DEFAULT_STATE,
         ...saved,
         devotees: saved.devotees || {},
+        virtualFunds: { ...DEFAULT_STATE.virtualFunds, ...(saved.virtualFunds || {}), wallets: saved.virtualFunds?.wallets || {} },
         offerings: { ...DEFAULT_STATE.offerings, ...(saved.offerings || {}) },
         settings: { ...DEFAULT_STATE.settings, ...(saved.settings || {}) },
         tiktok: { ...DEFAULT_STATE.tiktok }
@@ -318,6 +320,7 @@ function saveState() {
       activeIncenseSticks: state.activeIncenseSticks,
       offerings: state.offerings,
       devotees: state.devotees,
+      virtualFunds: state.virtualFunds,
       manualDisplayName: state.manualDisplayName || '',
       manualDisplayWish: state.manualDisplayWish || '',
       settings: state.settings
@@ -452,6 +455,7 @@ function getPublicState() {
     offerings: state.offerings,
     leaderboard: getLeaderboard(24),
     sanctuaryParticipants: [...sanctuaryVisitors.values()].slice(-80),
+    virtualEnvelope: getVirtualEnvelopePublic(),
     manualDisplayName: state.manualDisplayName || '',
     manualDisplayWish: state.manualDisplayWish || '',
     recentEvents: state.recentEvents.slice(0, 15),
@@ -1420,8 +1424,191 @@ app.get('/api/tts/demo', async (req, res) => {
   res.sendFile(path.join(TTS_CACHE_DIR, path.basename(result.url)));
 });
 
+
+// ---- TRỤ TRÌ TẶNG LỘC MAY MẮN (100% TIỀN LỄ ẢO, KHÔNG TIỀN THẬT) ----
+const VIRTUAL_PRICES = Object.freeze({
+  bow: 0, woodenFish: 1, incense: 5, lantern: 10,
+  bell: 10, fortune: 15, lotus: 20
+});
+const VIRTUAL_LABELS = Object.freeze({
+  bow: 'Lễ Phật', woodenFish: 'Gõ mõ', incense: 'Thắp hương',
+  lantern: 'Thả hoa đăng', bell: 'Thỉnh chuông',
+  fortune: 'Xin xăm', lotus: 'Dâng hoa sen'
+});
+const virtualActionLimits = new Map();
+function getVirtualEnvelopePublic() {
+  const e = state.virtualFunds.envelope;
+  return e ? {
+    id: e.id, total: e.total, remaining: e.remaining,
+    claimCount: Object.keys(e.claims || {}).length,
+    active: Boolean(e.active) && e.remaining > 0,
+    startedAt: e.startedAt
+  } : null;
+}
+function verifiedWebVisitor(body) {
+  const raw = String(body?.sessionId || '');
+  if (!/^[a-z0-9_-]{12,64}$/i.test(raw)) return null;
+  return sanctuaryVisitors.get('web:' + raw) || null;
+}
+function visitorWallet(body) {
+  const visitor = verifiedWebVisitor(body);
+  if (!visitor) return null;
+  const amount = state.virtualFunds.wallets[visitor.id];
+  const balance = Number.isSafeInteger(amount) && amount >= 0 ? amount : 0;
+  return { visitor, balance };
+}
+function publishVirtualUpdate() {
+  // Never broadcast individual wallet balances to the whole room.
+  broadcastNotification('virtual.updated', { envelope: getVirtualEnvelopePublic() });
+}
+function virtualRateLimited(visitor, action, now = Date.now()) {
+  const key = visitor.id + ':' + action;
+  const recent = virtualActionLimits.get(key) || 0;
+  if (now - recent < 1500) return true;
+  virtualActionLimits.set(key, now);
+  if (virtualActionLimits.size > 1000) {
+    for (const [id, last] of virtualActionLimits) {
+      if (now - last > 60000) virtualActionLimits.delete(id);
+    }
+  }
+  return false;
+}
+function performVirtualRitual(visitor, ritual, wish) {
+  const args = {
+    user: visitor.name,
+    uniqueId: visitor.id, avatar: visitor.avatar || '',
+    wish, readTts: true
+  };
+  switch (ritual) {
+    case 'bow': {
+      const event = pushEventLog({
+        type: 'bowToBuddha', user: visitor.name, uniqueId: visitor.id,
+        avatar: visitor.avatar || '', merit: 0, wish,
+        ttsText: ''
+      });
+      broadcastNotification('temple.event', { event, state: getPublicState() });
+      return { event };
+    }
+    case 'woodenFish': return Rituals.strikeWoodenFish({ ...args, count: 1 });
+    case 'incense': return Rituals.burnIncense({ ...args, count: 1 });
+    case 'lantern': return Rituals.sendPrayer(args);
+    case 'bell': return Rituals.ringBell({ ...args, count: 1 });
+    case 'fortune': return Rituals.drawFortune({ ...args, topic: wish });
+    case 'lotus': {
+      const giftName = 'Hoa Sen Bình An (lộc ảo)';
+      const devotion = recordDevotee(visitor.name, visitor.id, visitor.avatar || '', 20, 0, 1, wish);
+      state.offerings.lotus = (state.offerings.lotus || 0) + 1;
+      const event = pushEventLog({
+        type: 'offerGift', user: devotion.name, uniqueId: devotion.uniqueId,
+        avatar: devotion.avatar, giftType: 'lotus', giftName,
+        coins: 0, virtualCost: VIRTUAL_PRICES.lotus, merit: 20, wish,
+        ttsText: 'Nam mô A Di Đà Phật. Thí chủ ' + devotion.name + ' thành tâm dâng hoa sen cầu bình an.',
+        ttsVoice: state.settings.ttsVoice || 'maichi'
+      });
+      broadcastNotification('temple.event', { event, state: getPublicState() });
+      return { event };
+    }
+    default: throw new Error('Nghi thức không hợp lệ');
+  }
+}
+
 app.get('/api/state', (_req, res) => {
   res.json(getPublicState());
+});
+
+app.get('/api/virtual/status', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, envelope: getVirtualEnvelopePublic(), prices: VIRTUAL_PRICES });
+});
+
+app.post('/api/virtual/me', (req, res) => {
+  const entry = visitorWallet(req.body);
+  if (!entry) return res.status(403).json({ ok: false, error: 'Bạn cần đặt tên và vào chánh điện trước' });
+  const envelope = getVirtualEnvelopePublic();
+  const alreadyClaimed = Boolean(state.virtualFunds.envelope?.claims?.[entry.visitor.id]);
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, balance: entry.balance, envelope, alreadyClaimed, prices: VIRTUAL_PRICES });
+});
+
+app.post('/api/virtual/claim', (req, res) => {
+  const entry = visitorWallet(req.body);
+  if (!entry) return res.status(403).json({ ok: false, error: 'Hãy vào chánh điện trước khi mở lộc' });
+  const e = state.virtualFunds.envelope;
+  if (!e || !e.active || e.remaining <= 0) {
+    return res.status(409).json({ ok: false, error: 'Trụ trì chưa mở đợt tặng lộc hoặc quỹ đã hết' });
+  }
+  if (e.claims[entry.visitor.id]) {
+    return res.status(409).json({ ok: false, error: 'Bạn đã mở lộc trong đợt này. Mỗi người chỉ mở một lần.' });
+  }
+  if (virtualRateLimited(entry.visitor, 'claim')) return res.status(429).json({ ok: false, error: 'Xin thao tác chậm lại' });
+  // Random allocation: a single envelope can award at most ~30% of its
+  // original pool, unless fewer than that remain. All awards are integers.
+  const cap = Math.max(1, Math.min(e.remaining, Math.ceil(e.total * .3), 1000));
+  const amount = crypto.randomInt(1, cap + 1);
+  const nextBalance = entry.balance + amount;
+  if (!Number.isSafeInteger(nextBalance)) return res.status(409).json({ ok: false, error: 'Vượt giới hạn số dư' });
+  e.remaining -= amount;
+  e.claims[entry.visitor.id] = amount;
+  state.virtualFunds.wallets[entry.visitor.id] = nextBalance;
+  if (e.remaining === 0) e.active = false;
+  saveState();
+  publishVirtualUpdate();
+  res.json({ ok: true, amount, balance: nextBalance, envelope: getVirtualEnvelopePublic() });
+});
+
+app.post('/api/virtual/ritual', (req, res) => {
+  const entry = visitorWallet(req.body);
+  if (!entry) return res.status(403).json({ ok: false, error: 'Hãy vào chùa bằng tên của bạn trước' });
+  const ritual = String(req.body?.ritual || '');
+  if (!Object.hasOwn(VIRTUAL_PRICES, ritual)) {
+    return res.status(400).json({ ok: false, error: 'Nghi thức không hợp lệ' });
+  }
+  const cost = VIRTUAL_PRICES[ritual];
+  if (entry.balance < cost) {
+    return res.status(409).json({ ok: false, error: 'Không đủ lộc ảo. Bạn cần ' + cost + ' lộc để ' + VIRTUAL_LABELS[ritual] });
+  }
+  if (virtualRateLimited(entry.visitor, 'ritual')) return res.status(429).json({ ok: false, error: 'Hãy chờ 1–2 giây giữa các nghi thức' });
+  const wish = sanitizeWishText(req.body?.wish) || 'Cầu cho gia đình bình an, vạn sự cát tường';
+  state.virtualFunds.wallets[entry.visitor.id] = entry.balance - cost;
+  try {
+    const result = performVirtualRitual(entry.visitor, ritual, wish);
+    saveState();
+    publishVirtualUpdate();
+    res.json({ ok: true, ritual, cost, balance: entry.balance - cost, event: result.event });
+  } catch (err) {
+    state.virtualFunds.wallets[entry.visitor.id] = entry.balance;
+    console.warn('[Virtual Ritual]', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Không thể thực hiện nghi thức. Lộc ảo chưa bị trừ.' });
+  }
+});
+
+app.post('/api/virtual/envelope/create', requireAdmin, (req, res) => {
+  const total = Number(req.body?.total);
+  if (!Number.isSafeInteger(total) || total < 1 || total > 100000) {
+    return res.status(400).json({ ok: false, error: 'Quỹ tặng lộc cần từ 1 đến 100.000 lộc ảo' });
+  }
+  const current = state.virtualFunds.envelope;
+  if (current?.active && current.remaining > 0) {
+    return res.status(409).json({ ok: false, error: 'Đợt trước vẫn còn ' + current.remaining + ' lộc. Hãy kết thúc đợt trước trước khi mở đợt mới.' });
+  }
+  const count = (Number(state.virtualFunds.roundCounter) || 0) + 1;
+  state.virtualFunds.roundCounter = count;
+  state.virtualFunds.envelope = {
+    id: 'loc_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
+    total, remaining: total, active: true, startedAt: new Date().toISOString(),
+    claims: {}
+  };
+  saveState();
+  publishVirtualUpdate();
+  res.json({ ok: true, envelope: getVirtualEnvelopePublic() });
+});
+
+app.post('/api/virtual/envelope/close', requireAdmin, (_req, res) => {
+  if (!state.virtualFunds.envelope) return res.status(409).json({ ok: false, error: 'Chưa có đợt tặng lộc' });
+  state.virtualFunds.envelope.active = false;
+  saveState();
+  publishVirtualUpdate();
+  res.json({ ok: true, envelope: getVirtualEnvelopePublic() });
 });
 
 app.post('/api/visitors/join', (req, res) => {
