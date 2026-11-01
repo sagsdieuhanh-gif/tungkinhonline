@@ -68,7 +68,7 @@ main{max-width:1280px}
  .admin-chat-panel .abbot-chat-form button{min-width:85px;font-size:11px;padding:10px 7px}
  .admin-chat-panel #chat{max-height:48dvh}
 }
-</style></head><body><main><div class="abbot-identity">👑 TRỤ TRÌ <span>· ĐÃ XÁC THỰC</span></div><h1>🙏 Trụ trì · SAGS CXR Tam Bảo</h1>
+</style></head><body><main><div class="abbot-identity">👑 TRỤ TRÌ TRUNG KIÊN</div><h1>🙏 Trụ Trì Trung Kiên · SAGS CXR Tam Bảo</h1>
 <p class="hint">Chánh điện mở cửa tự do: người xem nhập tên là vào ngay, không phải chờ duyệt. Trụ trì có thể xem người đang có mặt, mời ra, khóa chat, phát lộc và gửi lời chúc.</p>
 <p class="hint">Một nơi để xem chánh điện, chat, quản lý người tham gia, phát lộc và điều khiển nghi lễ. Chọn chức năng ở các thẻ bên phải.</p>
 <div class="admin-workspace">
@@ -93,7 +93,7 @@ main{max-width:1280px}
     <button type="button" id="abbotTabControls" class="abbot-tab" data-abbot-tab="controls" role="tab" aria-controls="abbotPanelControls" aria-selected="false">🎛️ Nghi lễ</button>
   </nav>
   <div id="abbotPanelChat" class="abbot-tab-panel is-active" role="tabpanel" aria-labelledby="abbotTabChat">
-    <section class="card admin-chat-panel" id="abbotChatDock"><h2>👑 Chat chung với vai trò Trụ trì <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn của Trụ trì được tô vàng nổi bật. Người xem và Trụ trì cùng chat trong chánh điện. Tin nhắn Trụ trì có khung vàng; người xem được chúc tự động bằng tên.</p><form class="abbot-chat-form" id="abbotChatForm"><input id="abbotChatText" type="text" maxlength="180" required autocomplete="off" placeholder="👑 Trụ trì gửi lời chào hoặc lời chúc..." aria-label="Tin nhắn Trụ trì"><button type="submit" class="gold" id="abbotChatSend">👑 GỬI TIN TRỤ TRÌ</button></form><p class="abbot-chat-note" id="abbotChatNotice">Tin nhắn gửi bằng tài khoản quản trị có nhãn TRỤ TRÌ · ĐÃ XÁC THỰC. Lời chúc tự động cũng có nhãn riêng.</p><div class="abbot-chat-footer"><span>🪷 Nội dung chat chung cập nhật tự động</span><button class="danger" type="button" id="clearBtn">Xóa lịch sử chat</button></div><div id="chat"></div></section>
+    <section class="card admin-chat-panel" id="abbotChatDock"><h2>👑 Chat chung · Trụ Trì Trung Kiên <span class="count" id="nChat">0 tin</span></h2><p class="hint">Tin nhắn của Trụ trì được tô vàng nổi bật. Người xem và Trụ trì cùng chat trong chánh điện. Tin nhắn Trụ trì có khung vàng; người xem được chúc tự động bằng tên.</p><form class="abbot-chat-form" id="abbotChatForm"><input id="abbotChatText" type="text" maxlength="180" required autocomplete="off" placeholder="👑 Trụ Trì Trung Kiên gửi lời nhắn..." aria-label="Tin nhắn Trụ trì"><button type="submit" class="gold" id="abbotChatSend">👑 GỬI TIN TRỤ TRÌ</button></form><p class="abbot-chat-note" id="abbotChatNotice">Tin nhắn của Trụ Trì Trung Kiên hiển thị nổi bật trong chat chung; lời chúc tự động được ghi nhãn riêng.</p><div class="abbot-chat-footer"><span>🪷 Nội dung chat chung cập nhật tự động</span><button class="danger" type="button" id="clearBtn">Xóa lịch sử chat</button></div><div id="chat"></div></section>
   </div>
   <div id="abbotPanelPeople" class="abbot-tab-panel" role="tabpanel" aria-labelledby="abbotTabPeople" hidden>
     <section class="card"><h2>🪷 Người đang trong chánh điện <span class="count" id="nPeople">0 / 100</span></h2><p class="hint">Những người thật đang ở chánh điện. Trụ trì có thể tắt chat hoặc mời ra ngay tại đây.</p><div id="people"></div></section>
@@ -161,7 +161,7 @@ async function load(){
  const chat=$('chat');chat.replaceChildren();for(const m of [...s.messages].reverse()){
  const isAbbot=m.source==='abbot'&&m.role==='abbot';
  const previous=chat.children.length;
- line(chat,isAbbot?'👑 TRỤ TRÌ · ĐÃ XÁC THỰC'+(m.automated?' · 🌸 CHÚC TỰ ĐỘNG':'')
+ line(chat,isAbbot?'👑 TRỤ TRÌ TRUNG KIÊN'+(m.automated?' · 🌸 CHÚC TỰ ĐỘNG':'')
     :m.name+' · '+(m.source==='tiktok'?'TikTok':'Web'),
     m.text,[btn('Xóa tin','danger',()=>send('/api/trutri/chat/delete',{id:m.id}))]);
  if(isAbbot&&chat.children[previous])chat.children[previous].classList.add('abbot-chat-item');
