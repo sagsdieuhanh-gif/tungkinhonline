@@ -43,3 +43,5 @@ body[data-theater-role="visitor"]:not(.sanctuary-fullscreen) .buddha-cinema{disp
  .buddha-cinema-info{font-size:10px}
 }
 @media(prefers-reduced-motion:reduce){.buddha-cinema{transition:none!important}}
+
+.buddha-cinema-poster[hidden]{display:none!important}
