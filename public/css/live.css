@@ -1357,3 +1357,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 .shared-chat-name-row { display:flex;align-items:center;gap:8px; }
 .shared-chat-name-row input { min-width:0; }
 .shared-chat-name-row button { flex:none; }
+
+
+/* No pre-populated human figure: only reveal the center devotee after
+   a genuine participant has joined AND an actual ritual has occurred. */
+.central-worshipper { visibility: hidden; }
+.central-worshipper.real-participant-active { visibility: visible; }
