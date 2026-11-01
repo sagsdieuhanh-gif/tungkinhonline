@@ -21,6 +21,13 @@ assert.equal(findRitualDevoteeSeat({uniqueId:'actor_vip123',user:'Đặt Tên Kh
 assert.equal(findRitualDevoteeSeat({uniqueId:'',user:'  MINH   TÂM '},seats),vip,'manual name matches case/spaces');
 assert.equal(findRitualDevoteeSeat({uniqueId:'actor_wrong',user:'Không tồn tại'},seats),null,'never bow an arbitrary seat');
 assert.equal(findRitualDevoteeSeat({user:'Minh Tâm'},[vip,makeSeat('actor_second','Minh Tâm')]),null,'duplicate names are ambiguous');
+assert.ok(live.includes("window.location.pathname === '/obs'"),'/obs must directly activate the LIVE-only 9:16 view');
+assert.ok(live.includes("isBroadcastSource) sanctuaryImage.src = primary"),'LIVE selects full-resolution PNG');
+assert.ok(live.includes("isBroadcastSource\n      ? '/assets/amitabha_stage.png'"),'LIVE uses original PNG rather than 810x1440 JPEG');
+const png=fs.readFileSync('public/assets/amitabha_stage.png');
+assert.equal(png.toString('hex',0,8),'89504e470d0a1a0a','original background is a PNG');
+const originalW=png.readUInt32BE(16),originalH=png.readUInt32BE(20);
+assert.ok(originalW>=1080&&originalH>=1920,'Original LIVE background must cover 1080x1920, got '+originalW+'x'+originalH);
 assert.ok(live.includes('if (signature === lastVipActorSignature) return;'),'VIP sprites persist between unrelated updates');
 assert.ok(live.includes('hallViewers.map((d) =>'),'hall signature includes identity');
 assert.ok(live.includes("case 'setStageName': {\n        displayManualName(ev.user, ev.wish);"),'manual names are displayed');
