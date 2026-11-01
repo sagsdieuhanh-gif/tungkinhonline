@@ -203,6 +203,14 @@
           <button class="dock-btn active-toggle" id="btnToggleTts">🎙️ Giọng Đọc: BẬT</button>
           <button class="dock-btn active-toggle" id="btnToggleMusic">🎵 Nhạc Nền: BẬT</button>
         </div>
+        <div class="dock-section-title" style="margin-top:6px">🎤 Giọng đọc tiếng Việt từ thiết bị (miễn phí)</div>
+        <select id="browserVoiceSelect" class="dock-input" aria-label="Chọn giọng đọc tiếng Việt">
+          <option value="">Tự chọn giọng tiếng Việt</option>
+        </select>
+        <button class="dock-btn gold" id="btnTestBrowserVoice">🔊 ĐỌC THỬ TIẾNG VIỆT</button>
+        <div id="browserVoiceStatus" role="status" aria-live="polite" style="color:#dfd0ad;font-size:12px;line-height:1.5">
+          Render Free tắt ZeroTTS để tiết kiệm RAM. Giọng hệ thống phát ngay trên thiết bị đang mở trang, không phải giọng Mai Chi.
+        </div>
         <div class="volume-control-row">
           <div class="volume-label-line">
             <span>🎵 Âm lượng Nhạc nền</span>
