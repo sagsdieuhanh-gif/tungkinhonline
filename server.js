@@ -1531,6 +1531,17 @@ app.post('/api/temple/loc/ritual',guestOrigin,(req,res)=>{
  const r=locPool.spend(person.id,action,()=>locRitual(person,action,req.body?.wish));
  res.status(r.ok?200:409).json(r);
 });
+// Compatibility for tabs that still have the previous administration UI
+// open. The old virtual-gift endpoints no longer share the new approved
+// sanctuary's room/wallet model; return a helpful JSON error, not an HTML 404.
+app.all(['/api/virtual/envelope/create','/api/virtual/envelope/close',
+         '/api/virtual/status','/api/virtual/me','/api/virtual/claim',
+         '/api/virtual/ritual'],(req,res)=>{
+  res.status(410).json({ok:false,error:
+    'Bạn đang dùng bảng điều khiển cũ. Hãy tải lại trang và mở mục TRỤ TRÌ tại /trutri để phát lộc trong phòng mới.',
+    managementUrl:'/trutri'});
+});
+
 app.get('/api/trutri/loc',requireAdmin,(_req,res)=>{
  res.setHeader('Cache-Control','no-store');
  res.json({ok:true,envelope:locPool.view(),prices:locPool.prices});
