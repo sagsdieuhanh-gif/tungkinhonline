@@ -42,6 +42,19 @@
   const canvas = document.getElementById('templeCanvas');
   const particles = new window.TempleParticleEngine(canvas);
   const audio = new window.TempleAudioEngine();
+  // Only the local containing theater can quiet this iframe's background MP3.
+  // A visitor's private movie never changes OBS or another viewer's audio.
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin) return;
+    if (event.source !== window.parent) return;
+    if (event.data?.type !== 'sags-theater-audio') return;
+    if (event.data.suspend === true) {
+      audio.stopZenAmbience();
+    } else if (audio.bgMusicEnabled && audio.unlocked) {
+      audio.startZenAmbience();
+    }
+  });
+
   const voiceSelect = document.getElementById('neuralVoiceSelect');
   const voiceStatus = document.getElementById('browserVoiceStatus');
 
