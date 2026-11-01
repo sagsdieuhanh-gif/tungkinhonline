@@ -258,6 +258,7 @@ const DEFAULT_STATE = {
     dragon: 1
   },
   devotees: {},
+  approvedDharmaNames: [],
   manualDisplayName: '',
   manualDisplayWish: '',
   recentEvents: [],
@@ -288,6 +289,7 @@ function loadState() {
         ...DEFAULT_STATE,
         ...saved,
         devotees: saved.devotees || {},
+        approvedDharmaNames: Array.isArray(saved.approvedDharmaNames)?saved.approvedDharmaNames:[],
         offerings: { ...DEFAULT_STATE.offerings, ...(saved.offerings || {}) },
         settings: { ...DEFAULT_STATE.settings, ...(saved.settings || {}) },
         tiktok: { ...DEFAULT_STATE.tiktok }
@@ -302,7 +304,7 @@ function loadState() {
 let state = loadState();
 // The actual room is ephemeral: an approved person must be physically present in this session.
 state.settings.autoSim=false; // never create fake followers.
-const room=createTempleRoom({notify:(method,params)=>{
+const room=createTempleRoom({approvedNames:state.approvedDharmaNames,onRegistryChange:list=>{state.approvedDharmaNames=list;saveState()},notify:(method,params)=>{
   broadcastNotification(method,params);
   if(method==='temple.chat')broadcastNotification('chat.message',{
     id:params.id,name:params.name,text:params.text,source:params.source,
@@ -329,6 +331,7 @@ function saveState() {
       activeIncenseSticks: state.activeIncenseSticks,
       offerings: state.offerings,
       devotees: state.devotees,
+      approvedDharmaNames: state.approvedDharmaNames,
       manualDisplayName: state.manualDisplayName || '',
       manualDisplayWish: state.manualDisplayWish || '',
       settings: state.settings
@@ -1425,12 +1428,15 @@ app.get('/api/temple/me',(req,res)=>{
 app.post('/api/temple/join',guestOrigin,(req,res)=>{
  const ses=room.identity(req,res),display=String(req.body?.name||'').trim();
  const body=String(req.body?.comment||'').trim();
- if(display.length<2||display.length>32||!body||body.length>180)return res.status(400).json({error:'Nhập tên 2–32 ký tự và bình luận có nội dung'});
+ if(display.length<2||display.length>32||body.length>180)return res.status(400).json({error:'Nhập pháp danh từ 2–32 ký tự. Lời nhắn tối đa 180 ký tự'});
  if(ses.lastComment&&Date.now()-ses.lastComment<8000)return res.status(429).json({error:'Hãy chờ 8 giây trước khi gửi lại'});
  ses.lastComment=Date.now();ses.name=sanitizeUserName(display);
  const r=room.request({id:ses.id,displayName:ses.name,comment:body,source:'web'});
- if(!r.ok)return res.status(429).json({error:r.reason});
- res.json(room.status(ses));
+ if(!r.ok){
+   const reasons={'name-in-use':'Pháp danh đang được người khác sử dụng trong chánh điện. Nếu không phải bạn, hãy liên hệ Trụ trì.','empty-comment':'Lần đầu xin vào cần nhập lời nhắn để Trụ trì xem xét.','full':'Chánh điện đã đủ 100 người.'};
+   return res.status(r.reason==='name-in-use'?409:429).json({error:reasons[r.reason]||r.reason});
+ }
+ res.json({...room.status(ses),returning:Boolean(r.returning)});
 });
 app.post('/api/temple/leave',guestOrigin,(req,res)=>{
  const ses=room.identity(req,res);
@@ -1548,6 +1554,12 @@ app.post('/api/trutri/decide',requireAdmin,guestOrigin,(req,res)=>{
 });
 app.post('/api/trutri/remove',requireAdmin,guestOrigin,(req,res)=>{
  const ok=room.remove(req.body?.id);broadcastNotification('temple.state',getPublicState());res.json({ok});
+});
+app.post('/api/trutri/approved/revoke',requireAdmin,guestOrigin,(req,res)=>{
+ const name=String(req.body?.name||'').trim();
+ const ok=room.revokeApprovedName(name);
+ if(ok)broadcastNotification('temple.state',getPublicState());
+ res.json({ok});
 });
 app.post('/api/trutri/mute',requireAdmin,guestOrigin,(req,res)=>res.json({ok:room.setMute(req.body?.id,Boolean(req.body?.muted))}));
 app.post('/api/trutri/chat/send',requireAdmin,guestOrigin,(req,res)=>{
