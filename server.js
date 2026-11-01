@@ -915,6 +915,7 @@ async function connectTikTokLive(usernameOrUrl) {
     const publicText = cleanChatMessage(commentText);
     const lastChat = tiktokChatRate.get(uniqueId || user) || 0;
     if (publicText && Date.now() - lastChat >= 1500) {
+      addSanctuaryVisitor('tiktok:' + String(uniqueId || user), user, 'tiktok', avatar);
       tiktokChatRate.set(uniqueId || user, Date.now());
       if (tiktokChatRate.size > 500) tiktokChatRate.clear();
       appendSharedChat(user, publicText, 'tiktok');
@@ -1475,11 +1476,15 @@ app.post('/api/chat', (req, res) => {
   if (now - limit.last < 4000 || limit.count >= 25) {
     return res.status(429).json({ ok: false, error: 'Gửi tối đa 1 tin/4 giây và 25 tin/giờ. Hãy thử lại sau.' });
   }
-  const rawName = String(req.body?.name || '').trim();
-  const name = sanitizeUserName(rawName);
+  const sessionId = String(req.body?.sessionId || '');
+  const registeredVisitor = sanctuaryVisitors.get('web:' + sessionId);
+  if (!registeredVisitor) {
+    return res.status(403).json({ ok: false, error: 'Hãy vào chùa và đặt tên trước khi chat' });
+  }
+  const name = registeredVisitor.name;
   const content = cleanChatMessage(req.body?.text);
-  if (rawName.length < 2 || rawName.length > 26 || name === 'Thí Chủ Hữu Duyên' || !content) {
-    return res.status(400).json({ ok: false, error: 'Tên 2–26 ký tự và nội dung tối đa 180 ký tự; không gửi link/spam.' });
+  if (!content) {
+    return res.status(400).json({ ok: false, error: 'Nội dung tối đa 180 ký tự, không gửi liên kết hoặc spam' });
   }
   limit.last = now;
   limit.count += 1;
