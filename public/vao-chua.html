@@ -142,9 +142,14 @@ body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
 .lucky-rain-layer{position:fixed;inset:0;z-index:9340;overflow:hidden;pointer-events:none;
   contain:layout style paint;isolation:isolate}
 .lucky-rain-envelope{position:absolute;left:0;top:0;line-height:1;font-size:var(--lucky-size,33px);
+  min-width:45px;min-height:45px;display:grid;place-items:center;
+  padding:0;border:0;background:transparent;color:inherit;cursor:pointer;
+  pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
   opacity:0;will-change:transform,opacity;filter:drop-shadow(0 3px 5px #0009);
   animation:luckyEnvelopeFall var(--lucky-time,8s) linear forwards;
   -webkit-user-select:none;user-select:none}
+.lucky-rain-envelope:focus-visible{outline:2px solid #ffe6a4;outline-offset:3px;border-radius:12px}
+.lucky-rain-envelope:disabled{pointer-events:none;cursor:wait}
 @keyframes luckyEnvelopeFall{
   0%{opacity:0;transform:translate3d(0,-85px,0) rotate(-20deg) scale(.85)}
   8%{opacity:1}
@@ -223,7 +228,7 @@ body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
   <button type="button" id="visitorLocToggle" title="Mở lộc, ngồi thiền và hành lễ" aria-expanded="false">🧧 Lộc & lễ</button>
   <button type="button" id="visitorMeditationToggle" title="Bắt đầu hoặc xem thời gian thiền">🧘 Thiền +10/phút</button>
 </div>
-<div id="luckyEnvelopeRain" class="lucky-rain-layer" aria-hidden="true" hidden></div>
+<div id="luckyEnvelopeRain" class="lucky-rain-layer" aria-label="Phong bao lộc may mắn đang rơi" hidden></div>
 <button type="button" id="luckyEnvelopePrompt" class="lucky-rain-prompt" hidden>🧧 CÓ LỘC TỪ TRỤ TRÌ · MỞ LỘC</button>
 <button type="button" id="visitorChatToggle" class="chat-toggle" hidden aria-expanded="false">💬 Mở phòng chat</button>
 <div class="card"><h2>📜 Quy định tham gia</h2><p>Không có nhân vật giả; mọi người vào chùa được xuất hiện ngay, tối đa 100 vị trí. Nhập đúng pháp danh để trở lại. Một pháp danh chỉ sử dụng được cho một người tại cùng thời điểm; tên không phải cơ chế xác minh danh tính. Không chia sẻ số điện thoại, thông tin thanh toán hoặc dữ liệu cá nhân. Lộc lễ chỉ là điểm ảo, không quy đổi tiền hoặc xu TikTok.</p></div>
@@ -249,9 +254,12 @@ function stopLuckyRain(){
 }
 function spawnLuckyEnvelope(){
   if(!luckyActive||document.hidden||luckyReducedMotion||luckyLayer.childElementCount>=13)return;
-  const envelope=document.createElement('span');
+  const envelope=document.createElement('button');
+  envelope.type='button';
   envelope.className='lucky-rain-envelope';
+  envelope.setAttribute('aria-label','Chạm phong bao để mở lộc may mắn ngay');
   envelope.textContent='🧧';
+  envelope.addEventListener('click',claimLuckyEnvelope,{once:true});
   envelope.style.left=(4+Math.random()*89).toFixed(2)+'%';
   envelope.style.setProperty('--lucky-size',(24+Math.round(Math.random()*21))+'px');
   envelope.style.setProperty('--lucky-time',(6.5+Math.random()*2.5).toFixed(2)+'s');
@@ -278,16 +286,18 @@ function updateLuckyRain(envelope,alreadyClaimed){
   for(let i=0;i<4;i++)spawnLuckyEnvelope();
   if(!luckyReducedMotion)luckyRainTimer=setInterval(spawnLuckyEnvelope,750);
 }
-luckyPrompt.addEventListener('click',()=>{
-  if(!luckyActive||luckyClaimPending)return;
-  // Delegate to the existing, server-authoritative MỞ LỘC action.
+function claimLuckyEnvelope(){
+  if(!luckyActive||luckyClaimPending||locBusy)return;
+  // The falling envelope triggers the same server-validated one-time claim
+  // as MỞ LỘC, including the server-side random amount and wallet deposit.
   const claim=$('locGuestClaim');
   if(claim&&!claim.disabled)claim.click();
   else{
     $('locGuestPanel').classList.add('loc-open');
     $('visitorLocToggle').setAttribute('aria-expanded','true');
   }
-});
+}
+luckyPrompt.addEventListener('click',claimLuckyEnvelope);
 
 function setSanctuaryFullscreen(active){
   document.body.classList.toggle('sanctuary-fullscreen',Boolean(active));
@@ -455,11 +465,14 @@ $('locGuestClaim').onclick=async()=>{
  locBusy=true;luckyClaimPending=true;
  $('locGuestClaim').disabled=true;
  luckyPrompt.disabled=true;
+ luckyLayer.querySelectorAll('.lucky-rain-envelope').forEach(el=>{el.disabled=true});
  try{
   const r=await api('/api/temple/loc/claim',{});
   if(luckyRound)locallyClaimedRounds.add(luckyRound);
   stopLuckyRain();
-  $('locGuestStatus').textContent='🎊 Bạn đã mở được '+r.amount+' lộc ảo! Hãy chọn một nghi thức bên dưới.';
+  $('locGuestStatus').textContent='🎊 Bạn đã mở được '+r.amount+' coin ảo! Có thể dâng lễ và cúng dường ngay.';
+  $('locGuestPanel').classList.add('loc-open');
+  $('visitorLocToggle').setAttribute('aria-expanded','true');
  }catch(err){$('locGuestStatus').textContent='❌ '+err.message}
  finally{luckyClaimPending=false;locBusy=false;await refreshLoc()}
 };
