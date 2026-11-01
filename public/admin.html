@@ -177,6 +177,19 @@
       </section>
 
       <section class="card">
+        <h2>🧧 TRỤ TRÌ PHÁT LỘC MAY MẮN (TIỀN ẢO)</h2>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">Nhập tổng quỹ lộc ảo và bấm TẶNG LỘC. Mỗi người đang vào chánh điện được tự bấm MỞ LỘC một lần, nhận số ngẫu nhiên trong quỹ. Người nhận dùng để lễ Phật, thắp hương, dâng sen và hành lễ. Không phải tiền thật, không liên quan xu TikTok.</p>
+        <label for="adminVirtualTotal" style="color:var(--gold-light)">Tổng số lộc ảo phát trong đợt</label>
+        <div class="row" style="flex-wrap:wrap">
+          <input type="number" id="adminVirtualTotal" value="500" min="1" max="100000" step="1" inputmode="numeric" aria-label="Tổng số tiền lộc ảo" style="min-width:140px" />
+          <button class="btn gold" id="adminCreateVirtual">🧧 TẶNG LỘC CHO CẢ PHÒNG</button>
+        </div>
+        <div id="adminVirtualStatus" role="status" style="font-size:13px;line-height:1.6;color:#ffe5a1">Đang tải trạng thái quỹ lộc...</div>
+        <button class="btn" id="adminCloseVirtual">KẾT THÚC ĐỢT LỘC HIỆN TẠI</button>
+        <p style="font-size:12px;color:var(--muted)">Mỗi tài khoản khách nhận một lần mỗi đợt. Lộc đã nhận vẫn được giữ lại để hành lễ; phần quỹ chưa mở sẽ hủy khi kết thúc đợt.</p>
+      </section>
+
+      <section class="card">
         <h2>💬 3. Giả Lập Bình Luận Người Xem TikTok</h2>
         <div class="row">
           <input type="text" id="simComment" value="Con xin gieo quẻ cầu tài lộc đầu tháng ạ" placeholder="Nhập nội dung bình luận TikTok..." />
@@ -250,6 +263,65 @@
         output.textContent = '❌ Lỗi đọc: ' + error.message;
       }
     };
+
+    async function virtualAdminRequest(path, body = {}) {
+      const response = await fetch(path, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể cập nhật');
+      return data;
+    }
+    function showVirtualAdminStatus(envelope, error) {
+      const el = document.getElementById('adminVirtualStatus');
+      if (!el) return;
+      if (error) {
+        el.textContent = '❌ ' + error;
+        el.style.color = '#ffb0a2';
+        return;
+      }
+      el.style.color = '#ffe5a1';
+      el.textContent = !envelope ? 'Chưa có đợt tặng lộc.'
+        : (envelope.active ? '🟢 ĐANG PHÁT: ' : '⚪ ĐÃ KẾT THÚC: ') +
+          'Tổng ' + envelope.total.toLocaleString('vi-VN') +
+          ' lộc • Còn ' + envelope.remaining.toLocaleString('vi-VN') +
+          ' lộc • ' + envelope.claimCount + ' lượt mở.';
+    }
+    async function refreshVirtualAdmin() {
+      try {
+        const r = await fetch('/api/virtual/status', { cache: 'no-store' });
+        const d = await r.json();
+        if (d.ok) showVirtualAdminStatus(d.envelope);
+      } catch (error) { showVirtualAdminStatus(null, error.message); }
+    }
+    document.getElementById('adminCreateVirtual').onclick = async event => {
+      const total = Number(document.getElementById('adminVirtualTotal').value);
+      if (!Number.isSafeInteger(total) || total < 1 || total > 100000) {
+        showVirtualAdminStatus(null, 'Nhập quỹ lộc ảo trong khoảng 1–100.000');
+        return;
+      }
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const d = await virtualAdminRequest('/api/virtual/envelope/create', { total });
+        showVirtualAdminStatus(d.envelope);
+      } catch (error) { showVirtualAdminStatus(null, error.message); }
+      finally { button.disabled = false; }
+    };
+    document.getElementById('adminCloseVirtual').onclick = async event => {
+      if (!window.confirm('Kết thúc đợt lộc? Phần chưa được mở sẽ bị hủy, lộc đã nhận của người xem không mất.')) return;
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const d = await virtualAdminRequest('/api/virtual/envelope/close');
+        showVirtualAdminStatus(d.envelope);
+      } catch (error) { showVirtualAdminStatus(null, error.message); }
+      finally { button.disabled = false; }
+    };
+    refreshVirtualAdmin();
+    setInterval(refreshVirtualAdmin, 5000);
 
     async function refreshStatus() {
       const res = await fetch('/api/state');
