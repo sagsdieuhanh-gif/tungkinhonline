@@ -757,6 +757,61 @@
     }, 6800);
   }
 
+  // Stage is view-only: show verified Trụ trì posts in the same shared chat
+  // as public web and TikTok visitors, without giving viewers admin controls.
+  const stageChatLines = document.getElementById('stageChatMessages');
+  const welcomeBanner = document.getElementById('templeWelcomeBanner');
+  const welcomeTitle = document.getElementById('templeWelcomeTitle');
+  const welcomeWish = document.getElementById('templeWelcomeWish');
+  let stageChatHistory = [];
+  let lastStageWelcomeId = '';
+  let stageWelcomeTimer = null;
+  function stageAddChat(message) {
+    if (!message?.id || stageChatHistory.some(m => m.id === message.id)) return;
+    stageChatHistory.push(message);
+    if (stageChatHistory.length > 60) stageChatHistory.shift();
+    stageRenderChat();
+  }
+  function stageRenderChat() {
+    if (!stageChatLines) return;
+    stageChatLines.replaceChildren();
+    const recent = stageChatHistory.slice(-3);
+    if (!recent.length) {
+      const empty = document.createElement('div');
+      empty.className = 'stage-chat-placeholder';
+      empty.textContent = 'Chưa có lời nhắn. Nam mô A Di Đà Phật 🙏';
+      stageChatLines.append(empty);
+      return;
+    }
+    for (const m of recent) {
+      const verified = m.role === 'abbot' && m.source === 'abbot';
+      const line = document.createElement('div');
+      line.className = 'live-chat-overlay-line' + (verified ? ' abbot-chat' : '');
+      const author = document.createElement('strong');
+      author.textContent = verified ? '👑 TRỤ TRÌ' + (m.automated ? ' · CHÚC TỰ ĐỘNG: ' : ': ')
+        : ((m.source === 'tiktok' ? '♪ ' : '') + String(m.name || 'Phật tử').slice(0, 20) + ': ');
+      const txt = document.createElement('span');
+      txt.textContent = String(m.text || '').slice(0, 180);
+      line.append(author, txt);
+      stageChatLines.append(line);
+    }
+  }
+  function showStageWelcome(data) {
+    if (!welcomeBanner || !data?.id || data.id === lastStageWelcomeId) return;
+    const when = Number(data.timestamp);
+    if (!Number.isFinite(when) || Date.now() - when > 8500 || when - Date.now() > 10000) return;
+    lastStageWelcomeId = data.id;
+    welcomeTitle.textContent = '🙏 Chào mừng ' + String(data.name || 'Phật tử').slice(0, 32);
+    welcomeWish.textContent = String(data.wish || 'Chúc thân tâm an lạc, gia đình bình an.').slice(0, 210);
+    welcomeBanner.setAttribute('aria-hidden', 'false');
+    welcomeBanner.classList.add('is-visible');
+    clearTimeout(stageWelcomeTimer);
+    stageWelcomeTimer = setTimeout(() => {
+      welcomeBanner.classList.remove('is-visible');
+      welcomeBanner.setAttribute('aria-hidden', 'true');
+    }, 6500);
+  }
+
   // 8. Kết nối JSON-RPC 2.0 WebSocket & Gửi Lệnh RPC
   let ws = null;
   let rpcId = 1;
@@ -770,6 +825,14 @@
         const msg = JSON.parse(event.data);
         if (msg.method === 'temple.state') {
           updateUIState(msg.params);
+          if (msg.params?.lastWelcome) showStageWelcome(msg.params.lastWelcome);
+        } else if (msg.method === 'chat.sync') {
+          stageChatHistory = Array.isArray(msg.params) ? msg.params.slice(-60) : [];
+          stageRenderChat();
+        } else if (msg.method === 'chat.message') {
+          stageAddChat(msg.params);
+        } else if (msg.method === 'temple.joined') {
+          showStageWelcome(msg.params);
         } else if (msg.method === 'temple.event') {
           if (msg.params?.state) updateUIState(msg.params.state);
           if (msg.params?.event) triggerRitualVisuals(msg.params.event);
