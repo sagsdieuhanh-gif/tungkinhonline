@@ -120,6 +120,14 @@
         <!-- 9. LỚP CANVAS HIỆU ỨNG KHÓI HƯƠNG, HOA SEN RƠI & SÓNG ÂM -->
         <canvas id="templeCanvas"></canvas>
 
+        <!-- CHAT NỔI 9:16: đọc được trên OBS / màn hình livestream. -->
+        <section class="live-chat-overlay" aria-label="Phòng chat chung trên sân khấu">
+          <div class="live-chat-overlay-heading">💬 CHAT CHUNG • TIKTOK + WEB</div>
+          <div class="live-chat-overlay-lines" id="stageChatMessages" aria-live="off">
+            <div class="stage-chat-placeholder">Chưa có lời nhắn. Nam mô A Di Đà Phật 🙏</div>
+          </div>
+        </section>
+
         <!-- 10. THANH HUD GỌN GÀNG DƯỚI ĐÁY (GIỐNG MẪU THAM CHIẾU) -->
         <footer class="bottom-hud-bar">
           <!-- Bên trái: Thông báo hành lễ + 3 ô hướng dẫn tương tác -->
@@ -268,6 +276,28 @@
           🐉 Đại Lễ Kim Long Chầu Phật (Quà Lớn)
         </button>
       </div>
+
+      <section class="dock-section shared-chat-panel" id="sharedChatPanel">
+        <div class="shared-chat-heading">
+          <span class="dock-section-title">💬 PHÒNG CHAT CHUNG • CÔNG KHAI</span>
+          <span class="shared-chat-online">● TRỰC TIẾP</span>
+        </div>
+        <div class="shared-chat-info">Ai mở website cũng đọc và gửi tin được. Bình luận TikTok LIVE cũng sẽ xuất hiện ở đây.</div>
+        <div class="shared-chat-messages" id="sharedChatMessages" role="log" aria-live="polite" aria-relevant="additions text">
+          <div class="shared-chat-empty">Chưa có lời nhắn. Hãy gửi lời chào đầu tiên! 🙏</div>
+        </div>
+        <form id="sharedChatForm" autocomplete="off">
+          <label for="sharedChatName">Tên hiển thị trong chat</label>
+          <input class="dock-input" id="sharedChatName" name="chatName" placeholder="Nhập tên của bạn..." maxlength="26" required />
+          <label for="sharedChatText">Nội dung</label>
+          <div class="shared-chat-compose">
+            <input class="dock-input" id="sharedChatText" name="chatText" placeholder="Gửi lời chào hoặc cầu bình an..." maxlength="180" required />
+            <button class="dock-btn gold" type="submit" id="sharedChatSend">Gửi</button>
+          </div>
+          <div class="shared-chat-status" id="sharedChatStatus" role="status" aria-live="polite">Giới hạn 180 ký tự/tin, mỗi 4 giây một tin. Không gửi đường link.</div>
+        </form>
+        <button type="button" class="dock-btn" id="clearSharedChat" hidden>XÓA NỘI DUNG CHAT (ADMIN)</button>
+      </section>
 
       <div class="dock-section">
         <div class="dock-section-title">📜 Nhật Ký Tương Tác Gần Nhất</div>
