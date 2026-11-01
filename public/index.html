@@ -248,8 +248,13 @@
 
       <div class="dock-section">
         <div class="dock-section-title">🙏 Kích Hoạt Nghi Thức Tương Tác (RPC)</div>
-        <input type="text" id="inputDevoteeName" class="dock-input" value="Quỳnh_Finn" placeholder="Tên người xem / Thí chủ..." />
-        <input type="text" id="inputDevoteeWish" class="dock-input" value="Cầu cho gia đình bình an, tài lộc hanh thông, vạn sự như ý" placeholder="Lời cầu nguyện..." />
+        <label for="inputDevoteeName" style="font-size:13px;color:#e8d4a4">Tên thí chủ muốn hiển thị trên sân khấu</label>
+        <input type="text" id="inputDevoteeName" class="dock-input" value="" maxlength="26" autocomplete="off" placeholder="Nhập tên thí chủ (2–26 ký tự)..." />
+        <label for="inputDevoteeWish" style="font-size:13px;color:#e8d4a4">Lời cầu nguyện</label>
+        <input type="text" id="inputDevoteeWish" class="dock-input" value="Cầu cho gia đình bình an, tài lộc hanh thông, vạn sự như ý" maxlength="120" placeholder="Lời cầu nguyện..." />
+        <button class="dock-btn gold" id="btnSaveDevoteeName" type="button">✅ ĐẶT TÊN LÊN SÂN KHẤU</button>
+        <div id="nameSaveStatus" role="status" aria-live="polite" style="font-size:12px;line-height:1.5;color:#d8be92">Nhập tên và bấm ĐẶT TÊN. Tên sẽ hiện trên sân khấu và màn hình OBS. Không cộng công đức.</div>
+        <div style="font-size:11px;line-height:1.5;color:#baa885">Tên này dùng cho thao tác thử thủ công; tương tác TikTok thật sẽ hiển thị tên của người xem tương ứng.</div>
 
         <div class="dock-grid-2">
           <button class="dock-btn gold" id="btnRpcIncense">🔥 Thắp 3 Nén Hương</button>
