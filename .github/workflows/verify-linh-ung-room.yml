@@ -1,4 +1,4 @@
-name: Verify Linh Ung moderated room
+name: Verify SAGS CXR Tam Bảo moderated room
 on:
   push:
     branches: [feature/linh-ung-approved-room]
