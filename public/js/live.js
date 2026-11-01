@@ -42,6 +42,75 @@
   const canvas = document.getElementById('templeCanvas');
   const particles = new window.TempleParticleEngine(canvas);
   const audio = new window.TempleAudioEngine();
+  const voiceSelect = document.getElementById('browserVoiceSelect');
+  const voiceStatus = document.getElementById('browserVoiceStatus');
+
+  function updateVoiceStatus(message, danger = false) {
+    if (!voiceStatus) return;
+    voiceStatus.textContent = message;
+    voiceStatus.style.color = danger ? '#ffab9f' : '#d8f3ca';
+  }
+
+  function refreshAvailableVoices() {
+    if (!voiceSelect) return;
+    const voices = audio.getVietnameseVoices();
+    const selected = audio.browserVoiceURI || '';
+    voiceSelect.replaceChildren();
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Tự chọn giọng tiếng Việt';
+    voiceSelect.appendChild(option);
+    voices.forEach(voice => {
+      const entry = document.createElement('option');
+      entry.value = voice.voiceURI;
+      entry.textContent = voice.name + ' (' + voice.lang + ')';
+      voiceSelect.appendChild(entry);
+    });
+    voiceSelect.value = voices.some(v => v.voiceURI === selected) ? selected : '';
+    if (!audio.browserSpeechSupported) {
+      updateVoiceStatus('Trình duyệt này không hỗ trợ giọng đọc hệ thống. Hãy dùng Chrome, Edge hoặc Safari mới.', true);
+    } else if (!voices.length) {
+      updateVoiceStatus('Chưa phát hiện giọng tiếng Việt. Hãy cài giọng vi-VN trong cài đặt giọng nói của thiết bị, sau đó tải lại trang.', true);
+    } else {
+      updateVoiceStatus('Có ' + voices.length + ' giọng tiếng Việt trên thiết bị. Bấm ĐỌC THỬ để kích hoạt âm thanh.');
+    }
+  }
+
+  voiceSelect?.addEventListener('change', event => {
+    audio.setBrowserVoice(event.target.value);
+    updateVoiceStatus('Đã chọn giọng đọc. Bấm ĐỌC THỬ để nghe.');
+  });
+  if (audio.browserSpeechSupported) {
+    window.speechSynthesis.addEventListener?.('voiceschanged', refreshAvailableVoices);
+  }
+  refreshAvailableVoices();
+
+  audio.onTtsStateChange = ({ speaking, error, engine }) => {
+    if (error) updateVoiceStatus('Giọng đọc lỗi: ' + error, true);
+    else if (speaking) updateVoiceStatus('🔊 Đang đọc lời khấn (' + (engine === 'browser' ? 'giọng hệ thống' : 'ZeroTTS') + ')...');
+    else if (audio.browserSpeechSupported) {
+      const voices = audio.getVietnameseVoices();
+      if (voices.length) updateVoiceStatus('Đã sẵn sàng đọc lời khấn bằng giọng hệ thống.');
+    }
+  };
+
+  document.getElementById('btnTestBrowserVoice')?.addEventListener('click', () => {
+    audio.ensureContext();
+    if (!audio.browserSpeechSupported) {
+      updateVoiceStatus('Thiết bị không hỗ trợ Web Speech.', true);
+      return;
+    }
+    if (!audio.ttsEnabled) {
+      audio.ttsEnabled = true;
+      const button = document.getElementById('btnToggleTts');
+      if (button) {
+        button.textContent = '🎙️ Giọng Đọc: BẬT';
+        button.classList.add('active-toggle');
+      }
+    }
+    updateVoiceStatus('Đang kiểm tra giọng đọc tiếng Việt...');
+    audio.enqueueTts('Nam mô A Di Đà Phật. Chùa Linh Ứng Online kính chào quý thí chủ.');
+  });
 
   function unlockAudioOnce() {
     audio.ensureContext();
@@ -365,7 +434,8 @@
 
   function updateUIState(st) {
     if (!st) return;
-
+    // TTS service remains disabled on Render Free, but OS voices work locally.
+    audio.setServerTtsAvailable(Boolean(st.tts?.ready));
     document.getElementById('statIncense').textContent = Number(st.totalIncense || 0).toLocaleString('vi-VN');
     document.getElementById('statMerit').textContent = Number(st.totalMerit || 0).toLocaleString('vi-VN');
     document.getElementById('statWoodenFish').textContent = Number(st.woodenFishHits || 0).toLocaleString('vi-VN');
@@ -835,6 +905,9 @@
     const btn = e.currentTarget;
     btn.textContent = `🎙️ Giọng Đọc: ${audio.ttsEnabled ? 'BẬT' : 'TẮT'}`;
     btn.classList.toggle('active-toggle', audio.ttsEnabled);
+    updateVoiceStatus(audio.ttsEnabled
+      ? 'Giọng đọc đã bật. Bấm ĐỌC THỬ để kiểm tra âm thanh.'
+      : 'Giọng đọc đã tắt trên thiết bị này.');
   });
 
   document.getElementById('btnToggleMusic')?.addEventListener('click', (e) => {
