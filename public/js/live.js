@@ -1180,6 +1180,18 @@
       : 'Giọng đọc đã tắt trên thiết bị này.');
   });
 
+  const bgMusicTrackLabel = document.getElementById('bgMusicTrackLabel');
+  audio.onBgTrackChange = (title, error) => {
+    if (bgMusicTrackLabel) {
+      bgMusicTrackLabel.textContent = error ? '⚠️ ' + error : '🎶 Nhạc thiền: ' + title;
+      bgMusicTrackLabel.style.color = error ? '#ffaba0' : '#efd7a2';
+    }
+  };
+  document.getElementById('btnNextBgTrack')?.addEventListener('click', () => {
+    audio.ensureContext();
+    audio.nextBackgroundTrack();
+  });
+
   document.getElementById('btnToggleMusic')?.addEventListener('click', (e) => {
     audio.bgMusicEnabled = !audio.bgMusicEnabled;
     if (audio.bgMusicEnabled) {
