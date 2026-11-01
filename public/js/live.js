@@ -478,7 +478,7 @@
 
     // Tên đặt thủ công được ưu tiên lúc mở sân khấu; sự kiện Live thật vẫn
     // tự cập nhật tên người tương tác sau đó.
-    if (!hasInitializedRealLeader && lb.length && st.manualDisplayName) {
+    if (!hasInitializedRealLeader && lb.some(p=>p.name===st.manualDisplayName)) {
       hasInitializedRealLeader = true;
       displayManualName(st.manualDisplayName, st.manualDisplayWish);
       if (nameInput && !nameInput.value.trim()) nameInput.value = st.manualDisplayName;
