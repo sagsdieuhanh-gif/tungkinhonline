@@ -68,6 +68,59 @@ main{padding-top:max(12px,env(safe-area-inset-top));max-width:1140px}
  h1{font-size:clamp(30px,8vw,42px)}
  .card{padding:16px}
 }
+
+
+/* Immersive chánh điện. Normal landing disappears once a visitor enters. */
+.sanctuary-toolbar[hidden]{display:none!important}
+.sanctuary-toolbar{position:fixed;left:max(8px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));
+ z-index:9300;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sanctuary-toolbar button{font-size:12px;padding:9px 11px;border:1px solid #e9be71;
+ background:rgba(37,20,11,.9);color:#fff0c4;box-shadow:0 3px 15px #0009}
+.sanctuary-toolbar #visitorLocToggle{background:linear-gradient(130deg,#edd18d,#c99542);color:#2d1908;font-weight:850}
+.sanctuary-panel-top{display:none;justify-content:space-between;align-items:center;gap:8px;
+ padding:6px 3px;border-bottom:1px solid #aa803d;margin-bottom:6px;color:#ffe7ad}
+.sanctuary-panel-top button{padding:5px 10px}
+body.sanctuary-fullscreen{width:100%;height:100dvh;max-height:100dvh;overflow:hidden;background:#090604}
+body.sanctuary-fullscreen:before{display:none}
+body.sanctuary-fullscreen main{padding:0!important;margin:0!important;width:100%!important;
+ max-width:none!important;height:100dvh!important;overflow:hidden}
+body.sanctuary-fullscreen main>.visitor-topbar,
+body.sanctuary-fullscreen main>.eyebrow,
+body.sanctuary-fullscreen main>h1,
+body.sanctuary-fullscreen main>.sub,
+body.sanctuary-fullscreen main>.card,
+body.sanctuary-fullscreen main>footer{display:none!important}
+body.sanctuary-fullscreen #inside{display:block!important;position:fixed;inset:0;
+ height:100dvh;width:100%;margin:0;padding:0;z-index:50}
+body.sanctuary-fullscreen #inside>.grid{display:block!important;margin:0!important}
+body.sanctuary-fullscreen #sanctuaryStage{position:fixed;inset:0;z-index:60;
+ display:flex!important;align-items:center;justify-content:center;
+ width:100vw;height:100dvh;margin:0!important;padding:0!important;
+ border:0!important;border-radius:0!important;background:#080403!important;
+ box-shadow:none!important;overflow:hidden}
+body.sanctuary-fullscreen #sanctuaryStage>h2,
+body.sanctuary-fullscreen #sanctuaryStage>p{display:none!important}
+body.sanctuary-fullscreen #templeFrame{display:block;border:0;border-radius:0;
+ width:min(100vw,56.25dvh)!important;height:min(100dvh,177.77778vw)!important;
+ max-height:100dvh!important;aspect-ratio:9/16!important;
+ margin:0 auto!important;background:#0d0705;flex:none}
+body.sanctuary-fullscreen #locGuestPanel{display:none;position:fixed;z-index:9400;
+ left:8px;top:max(55px,env(safe-area-inset-top) + 55px);
+ width:min(395px,calc(100vw - 16px));height:min(76dvh,680px);
+ overflow-y:auto;overscroll-behavior:contain;border:1.5px solid #efc879;
+ padding:13px;margin:0!important;border-radius:14px;background:#21140ff7;
+ box-shadow:0 12px 36px #000c}
+body.sanctuary-fullscreen #locGuestPanel.loc-open{display:block!important}
+body.sanctuary-fullscreen #locGuestPanel .sanctuary-panel-top{display:flex}
+body.sanctuary-fullscreen .chat-window{z-index:9450}
+body.sanctuary-fullscreen .chat-toggle{z-index:9460}
+body.sanctuary-fullscreen .sanctuary-toolbar{z-index:9500}
+body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
+@media(max-width:520px){
+ body.sanctuary-fullscreen #locGuestPanel{top:max(53px,env(safe-area-inset-top) + 53px);
+ height:min(71dvh,570px)}
+ .sanctuary-toolbar button{padding:8px 9px;font-size:11px}
+}
 </style></head><body><main>
 <nav class="visitor-topbar" aria-label="Quản trị"><a class="abbot-entry-btn" href="/trutri">🔐 TRỤ TRÌ · ĐĂNG NHẬP</a></nav>
 <div class="eyebrow">NAM MÔ A DI ĐÀ PHẬT</div><h1>SAGS CXR Tam Bảo</h1><p class="sub">🪷 Chánh điện mở cửa · Người thật tham gia · Trụ trì đồng hành</p>
@@ -82,6 +135,7 @@ main{padding-top:max(12px,env(safe-area-inset-top));max-width:1140px}
 </div>
 <section id="inside" class="hidden">
 <div class="card" id="locGuestPanel">
+<div class="sanctuary-panel-top"><strong>🧧 Lộc và nghi thức</strong><button type="button" id="locGuestClose" aria-label="Thu gọn bảng lộc">✕</button></div>
 <h2>🧧 Lộc may mắn do Trụ trì phát</h2>
 <p class="lucky-hint">Khi Trụ trì mở đợt phát lộc, bạn bấm MỞ LỘC một lần để nhận số lộc ngẫu nhiên. Dùng lộc ảo để dâng sen, thắp hương, thỉnh chuông và hành lễ. Không phải tiền thật hoặc xu TikTok.</p>
 <div class="row"><strong>Số dư:</strong><span class="lucky-balance" id="locGuestBalance">0 lộc</span></div>
@@ -100,24 +154,62 @@ main{padding-top:max(12px,env(safe-area-inset-top));max-width:1140px}
 <div id="locGuestStatus" role="status" aria-live="polite">Người đã vào chánh điện có thể mở lộc khi Trụ trì phát.</div>
 </div>
 <div class="grid">
-<div class="card"><h2>🪷 Chánh điện và đọc kinh</h2><p class="muted">Bấm vào hình chánh điện để bật âm thanh nếu trình duyệt đang chặn tự phát.</p><iframe title="Chánh điện SAGS CXR Tam Bảo" id="templeFrame" class="stageframe" loading="lazy" allow="autoplay" referrerpolicy="same-origin"></iframe></div>
+<div class="card" id="sanctuaryStage"><h2>🪷 Chánh điện và đọc kinh</h2><p class="muted">Chạm vào hình chánh điện để bật âm thanh nếu trình duyệt đang chặn tự phát.</p><iframe title="Chánh điện SAGS CXR Tam Bảo" id="templeFrame" class="stageframe" loading="eager" allow="autoplay; fullscreen" referrerpolicy="same-origin"></iframe></div>
 <div class="card chat-window chat-collapsed" id="visitorChatDock">
 <div class="chat-handle" id="visitorChatHandle"><span>💬 Chat chung · Kéo để di chuyển</span><button type="button" class="chat-close" id="visitorChatClose">−</button></div>
 <h2>💬 Trò chuyện trong chánh điện</h2><p class="muted">Phòng chat chung người xem và TikTok LIVE. Trụ trì quản lý tin nhắn.</p><div id="chatLog" class="chatlog" role="log"><span class="muted">Chưa có tin nhắn.</span></div>
 <form id="chatForm" class="chatForm"><input id="chatText" maxlength="180" placeholder="Gửi lời chào, niệm Phật..." aria-label="Tin nhắn phòng chat" required><button type="submit" class="primary" id="chatSend">GỬI</button></form><p id="chatInfo" class="muted"></p>
 <h2>Phật tử đang có mặt</h2><div id="members" class="members"></div></div>
 </div></section>
+<div class="sanctuary-toolbar" id="sanctuaryToolbar" hidden aria-label="Các thao tác trong chánh điện">
+  <button type="button" id="sanctuaryExit" title="Rời chánh điện">‹ Thoát</button>
+  <button type="button" id="sanctuaryNativeFull" title="Bật chế độ toàn màn hình">⛶</button>
+  <button type="button" id="visitorLocToggle" title="Mở lộc và hành lễ" aria-expanded="false">🧧 Lộc & lễ</button>
+</div>
 <button type="button" id="visitorChatToggle" class="chat-toggle" hidden aria-expanded="false">💬 Mở phòng chat</button>
 <div class="card"><h2>📜 Quy định tham gia</h2><p>Không có nhân vật giả; mọi người vào chùa được xuất hiện ngay, tối đa 100 vị trí. Nhập đúng pháp danh để trở lại. Một pháp danh chỉ sử dụng được cho một người tại cùng thời điểm; tên không phải cơ chế xác minh danh tính. Không chia sẻ số điện thoại, thông tin thanh toán hoặc dữ liệu cá nhân. Lộc lễ chỉ là điểm ảo, không quy đổi tiền hoặc xu TikTok.</p></div>
 <footer><a href="/trutri" style="display:inline-block;color:#ffe0a1;font-weight:700;margin-bottom:14px;padding:10px 14px;border:1px solid #b58a4c;border-radius:10px;text-decoration:none">🔐 TRỤ TRÌ · QUẢN LÝ CHÁNH ĐIỆN</a><div>SAGS CXR Tam Bảo · Chánh điện mở cửa tự do tối đa 100 người · Trụ trì có thể quản lý khi cần.</div></footer>
 </main><script src="/js/chat-dock.js"></script><script>
 'use strict';
 const $=id=>document.getElementById(id);let currentStatus='',currentVersion=-1,chatVersion=-1,busy=false;
+function setSanctuaryFullscreen(active){
+  document.body.classList.toggle('sanctuary-fullscreen',Boolean(active));
+  $('sanctuaryToolbar').hidden=!active;
+  if(!active){
+    $('locGuestPanel').classList.remove('loc-open');
+    $('visitorLocToggle').setAttribute('aria-expanded','false');
+  }
+}
+$('visitorLocToggle').addEventListener('click',()=>{
+ const open=$('locGuestPanel').classList.toggle('loc-open');
+ $('visitorLocToggle').setAttribute('aria-expanded',String(open));
+});
+$('locGuestClose').addEventListener('click',()=>{
+ $('locGuestPanel').classList.remove('loc-open');
+ $('visitorLocToggle').setAttribute('aria-expanded','false');
+});
+$('sanctuaryNativeFull').addEventListener('click',async()=>{
+ try {
+  if(document.fullscreenElement) await document.exitFullscreen();
+  else if(document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+ }catch(error){console.info('Fullscreen API unavailable; immersive page remains active.',error.message)}
+});
+$('sanctuaryExit').addEventListener('click',async()=>{
+ try {
+  await api('/api/temple/leave',{});
+  if(document.fullscreenElement) await document.exitFullscreen().catch(()=>{});
+  $('templeFrame').src='';
+  chatVersion=-1;
+  setSanctuaryFullscreen(false);
+  await refresh();
+ }catch(error){alert('Không thể rời chánh điện: '+error.message)}
+});
 async function api(path,data,method){const options={credentials:'same-origin',cache:'no-store'};if(data!==undefined){options.method=method||'POST';options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(data)}const r=await fetch(path,options);const v=await r.json().catch(()=>({error:'Không đọc được phản hồi'}));if(!r.ok)throw Error(v.error||'HTTP '+r.status);return v}
 function statusView(x){
  const now=x.status;currentStatus=now;
  $('headCount').textContent=x.count+' / '+x.capacity+' vị trí';
- $('inside').classList.toggle('hidden',now!=='approved');$('visitorChatToggle').hidden=now!=='approved';$('leaveBtn').classList.toggle('hidden',now!=='approved'&&now!=='pending');
+ $('inside').classList.toggle('hidden',now!=='approved');$('visitorChatToggle').hidden=now!=='approved';
+ setSanctuaryFullscreen(now==='approved');$('leaveBtn').classList.toggle('hidden',now!=='approved'&&now!=='pending');
  $('joinForm').classList.toggle('hidden',now==='approved'||now==='pending');
  const titles={new:'Sẵn sàng vào chánh điện',pending:'Đang vào chánh điện',approved:'🪷 Đã vào chánh điện','not-approved':'Mời vào chánh điện'};
  $('statusTitle').textContent=titles[now]||titles.new;
@@ -131,7 +223,7 @@ async function refresh(){
  catch(e){$('statusDetail').textContent=e.message}
 }
 async function loadChat(){
- try{const c=await api('/api/temple/chat');$('chatText').disabled=!!c.muted;$('chatSend').disabled=!!c.muted;$('chatInfo').textContent=c.muted?'Trụ trì đã tạm khóa quyền chat của bạn. Bạn vẫn đọc được tin nhắn.':'Mọi người đã được duyệt đều có thể thấy tin nhắn chung.';
+ try{const c=await api('/api/temple/chat');$('chatText').disabled=!!c.muted;$('chatSend').disabled=!!c.muted;$('chatInfo').textContent=c.muted?'Trụ trì đã tạm khóa quyền chat của bạn. Bạn vẫn đọc được tin nhắn.':'Mọi người đang ở chánh điện đều thấy tin nhắn chung.';
  if(c.version!==chatVersion){chatVersion=c.version;const log=$('chatLog'),near=log.scrollHeight-log.scrollTop-log.clientHeight<60;log.replaceChildren();if(!c.messages.length){const n=document.createElement('span');n.className='muted';n.textContent='Chưa có lời nhắn.';log.append(n)}
  for(const m of c.messages){const row=document.createElement('div');const isAbbot=m.role==='abbot'&&m.source==='abbot';row.className='chatline'+(isAbbot?' abbot-message':'');const meta=document.createElement('div');meta.className='chatmeta';const d=new Date(m.at);meta.textContent=(isAbbot?'👑 TRỤ TRÌ · ĐÃ XÁC THỰC':m.name+' · '+(m.source==='tiktok'?'TikTok LIVE':'Web'))+(m.automated?' · 🌸 LỜI CHÚC TỰ ĐỘNG':'')+' · '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});const t=document.createElement('div');t.className='chattext';t.textContent=m.text;row.append(meta,t);log.append(row)}if(near||c.messages.length<3)log.scrollTop=log.scrollHeight}}
  catch(e){$('chatInfo').textContent=e.message}
