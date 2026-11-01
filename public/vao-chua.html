@@ -121,6 +121,20 @@ body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
  height:min(71dvh,570px)}
  .sanctuary-toolbar button{padding:8px 9px;font-size:11px}
 }
+
+/* Active meditation is server-scored; a visible and compact timer remains in
+   the immersive sanctuary toolbar. The detailed card is kept in the lộc panel. */
+.meditation-box{border:1.5px solid #edd287;border-radius:13px;padding:13px 12px;
+ margin:11px 0;background:linear-gradient(140deg,#4c2e1c,#25150d);color:#fbe6b8}
+.meditation-box strong{font-size:16px;color:#ffe49e}
+.meditation-box p{margin:8px 0}
+.meditation-timer{text-align:center;font-size:38px;font-weight:850;letter-spacing:2px;
+ font-variant-numeric:tabular-nums;color:#ffe8a6;padding:8px}
+.meditation-actions{display:flex;gap:7px;align-items:stretch;flex-wrap:wrap}
+.meditation-actions button{font-size:12px;padding:9px 11px;flex:1 1 110px}
+.meditation-actions button:disabled{opacity:.5;cursor:not-allowed}
+#meditationMessage{font-size:12px;color:#c3edc5;line-height:1.6;padding-top:8px;min-height:22px}
+#visitorMeditationToggle.meditating{background:#cf9f47;color:#241004;font-weight:900}
 </style></head><body><main>
 <nav class="visitor-topbar" aria-label="Quản trị"><a class="abbot-entry-btn" href="/trutri">🔐 TRỤ TRÌ · ĐĂNG NHẬP</a></nav>
 <div class="eyebrow">NAM MÔ A DI ĐÀ PHẬT</div><h1>SAGS CXR Tam Bảo</h1><p class="sub">🪷 Chánh điện mở cửa · Người thật tham gia · Trụ trì đồng hành</p>
@@ -138,7 +152,17 @@ body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
 <div class="sanctuary-panel-top"><strong>🧧 Lộc và nghi thức</strong><button type="button" id="locGuestClose" aria-label="Thu gọn bảng lộc">✕</button></div>
 <h2>🧧 Lộc may mắn do Trụ trì phát</h2>
 <p class="lucky-hint">Khi Trụ trì mở đợt phát lộc, bạn bấm MỞ LỘC một lần để nhận số lộc ngẫu nhiên. Dùng lộc ảo để dâng sen, thắp hương, thỉnh chuông và hành lễ. Không phải tiền thật hoặc xu TikTok.</p>
-<div class="row"><strong>Số dư:</strong><span class="lucky-balance" id="locGuestBalance">0 lộc</span></div>
+<div class="row"><strong>Số dư coin ảo:</strong><span class="lucky-balance" id="locGuestBalance">0 coin</span></div>
+<section class="meditation-box" id="meditationBox">
+  <strong>🧘 Ngồi thiền tích coin</strong>
+  <p class="lucky-hint">Ngồi thiền đủ mỗi phút được +10 coin ảo, cộng vào số dư dùng dâng sen, thắp hương và các nghi thức. Chỉ tính thời gian khi đang mở chánh điện và phiên thiền hoạt động.</p>
+  <div class="meditation-timer" id="meditationTimer">00:00</div>
+  <div class="row meditation-actions">
+    <button type="button" id="meditationStart" class="primary">🧘 BẮT ĐẦU NGỒI THIỀN</button>
+    <button type="button" id="meditationStop" disabled>⏹ DỪNG THIỀN</button>
+  </div>
+  <div id="meditationMessage" role="status" aria-live="polite">Thưởng 10 coin ảo cho mỗi phút thiền hợp lệ.</div>
+</section>
 <div class="status" id="locGuestRound">Đang xem quỹ lộc...</div>
 <button id="locGuestClaim" type="button" disabled>🧧 CHỜ TRỤ TRÌ PHÁT LỘC</button>
 <label for="locGuestWish">Lời cầu nguyện</label><input id="locGuestWish" maxlength="120" placeholder="Cầu gia đình bình an..." />
@@ -164,7 +188,8 @@ body.sanctuary-fullscreen .chat-window:not(.chat-collapsed){max-height:72dvh}
 <div class="sanctuary-toolbar" id="sanctuaryToolbar" hidden aria-label="Các thao tác trong chánh điện">
   <button type="button" id="sanctuaryExit" title="Rời chánh điện">‹ Thoát</button>
   <button type="button" id="sanctuaryNativeFull" title="Bật chế độ toàn màn hình">⛶</button>
-  <button type="button" id="visitorLocToggle" title="Mở lộc và hành lễ" aria-expanded="false">🧧 Lộc & lễ</button>
+  <button type="button" id="visitorLocToggle" title="Mở lộc, ngồi thiền và hành lễ" aria-expanded="false">🧧 Lộc & lễ</button>
+  <button type="button" id="visitorMeditationToggle" title="Bắt đầu hoặc xem thời gian thiền">🧘 Thiền +10/phút</button>
 </div>
 <button type="button" id="visitorChatToggle" class="chat-toggle" hidden aria-expanded="false">💬 Mở phòng chat</button>
 <div class="card"><h2>📜 Quy định tham gia</h2><p>Không có nhân vật giả; mọi người vào chùa được xuất hiện ngay, tối đa 100 vị trí. Nhập đúng pháp danh để trở lại. Một pháp danh chỉ sử dụng được cho một người tại cùng thời điểm; tên không phải cơ chế xác minh danh tính. Không chia sẻ số điện thoại, thông tin thanh toán hoặc dữ liệu cá nhân. Lộc lễ chỉ là điểm ảo, không quy đổi tiền hoặc xu TikTok.</p></div>
@@ -196,6 +221,7 @@ $('sanctuaryNativeFull').addEventListener('click',async()=>{
 });
 $('sanctuaryExit').addEventListener('click',async()=>{
  try {
+  if(meditationActive) await stopMeditation(true);
   await api('/api/temple/leave',{});
   if(document.fullscreenElement) await document.exitFullscreen().catch(()=>{});
   $('templeFrame').src='';
@@ -232,11 +258,88 @@ $('joinForm').addEventListener('submit',async e=>{e.preventDefault();if(busy)ret
 $('chatForm').addEventListener('submit',async e=>{e.preventDefault();const input=$('chatText');const text=input.value.trim();if(!text)return;try{await api('/api/temple/chat',{text});input.value='';await loadChat()}catch(e){$('chatInfo').textContent=e.message}});
 
 let locBusy=false;
+let meditationActive=false, meditationElapsed=0, meditationEarned=0;
+let meditationUpdatedAt=Date.now(), meditationPulseBusy=false;
+function medTime(n){
+ const seconds=Math.max(0,Math.floor(n));
+ return String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+}
+function setMeditationMessage(text,isError=false){
+ const el=$('meditationMessage');el.textContent=text;
+ el.style.color=isError?'#ffa69e':'#c3edc5';
+}
+function updateMeditationView(){
+ const localDelta=meditationActive&&!document.hidden ? Math.floor((Date.now()-meditationUpdatedAt)/1000) : 0;
+ const value=medTime(meditationElapsed+Math.min(35,Math.max(0,localDelta)));
+ $('meditationTimer').textContent=value;
+ $('meditationStart').disabled=meditationActive||meditationPulseBusy;
+ $('meditationStop').disabled=!meditationActive||meditationPulseBusy;
+ const button=$('visitorMeditationToggle');
+ button.classList.toggle('meditating',meditationActive);
+ button.textContent=meditationActive?'🧘 '+value+' · +'+meditationEarned+' coin':'🧘 Thiền +10/phút';
+}
+function syncMeditation(m) {
+ if(!m)return;
+ const wasActive=meditationActive;
+ meditationActive=Boolean(m.active);
+ meditationElapsed=Number(m.elapsedSeconds)||0;
+ meditationEarned=Number(m.earned)||0;
+ meditationUpdatedAt=Date.now();
+ if(wasActive&&!meditationActive)setMeditationMessage('Phiên thiền đã dừng. Bấm BẮT ĐẦU để thiền tiếp.');
+ updateMeditationView();
+}
+async function stopMeditation(silent=false){
+ if(!meditationActive)return;
+ meditationActive=false;
+ updateMeditationView();
+ try{
+  const r=await api('/api/temple/meditation/stop',{});
+  syncMeditation(r);
+  if(!silent)setMeditationMessage('Đã kết thúc thiền. Coin đã nhận vẫn nằm trong ví.');
+ }catch(err){
+  if(!silent)setMeditationMessage('Không thể dừng phiên: '+err.message,true);
+ }
+}
+$('meditationStart').onclick=async()=>{
+ if(currentStatus!=='approved'||meditationPulseBusy||meditationActive)return;
+ meditationPulseBusy=true;updateMeditationView();
+ try {
+  const d=await api('/api/temple/meditation/start',{});
+  syncMeditation(d);
+  setMeditationMessage('🙏 Đã bắt đầu thiền. Giữ trang chánh điện đang mở: đủ 1 phút +10 coin ảo.');
+ }catch(e){setMeditationMessage('❌ '+e.message,true)}
+ finally{meditationPulseBusy=false;updateMeditationView()}
+};
+$('meditationStop').onclick=()=>stopMeditation(false);
+$('visitorMeditationToggle').onclick=()=>{
+ $('locGuestPanel').classList.add('loc-open');
+ $('visitorLocToggle').setAttribute('aria-expanded','true');
+ $('meditationBox').scrollIntoView({behavior:'smooth',block:'nearest'});
+};
+async function pulseMeditation(){
+ if(!meditationActive||meditationPulseBusy||currentStatus!=='approved')return;
+ if(document.hidden){await stopMeditation(true);return}
+ meditationPulseBusy=true;
+ try{
+  const r=await api('/api/temple/meditation/pulse',{});
+  syncMeditation(r);
+  if(Number(r.justEarned)>0){
+    $('locGuestBalance').textContent=Number(r.balance).toLocaleString('vi-VN')+' coin';
+    setMeditationMessage('🌸 Hoan hỷ! Thiền thêm 1 phút, được +'+r.justEarned+' coin ảo. Tổng đã nhận: '+r.earned+' coin.');
+  }
+ }catch(e){
+  meditationActive=false;
+  setMeditationMessage('⏸ Phiên thiền tạm dừng: '+e.message,true);
+ }finally{meditationPulseBusy=false;updateMeditationView()}
+}
+setInterval(updateMeditationView,1000);
+setInterval(pulseMeditation,15000);
 async function refreshLoc(){
  if(currentStatus!=='approved'||document.hidden)return;
  try{
   const v=await api('/api/temple/loc/status'),e=v.envelope;
-  $('locGuestBalance').textContent=v.balance.toLocaleString('vi-VN')+' lộc';
+  $('locGuestBalance').textContent=v.balance.toLocaleString('vi-VN')+' coin';
+  syncMeditation(v.meditation);
   $('locGuestRound').textContent=!e?'Chưa có đợt tặng lộc':
    (e.active?'🧧 ĐANG PHÁT':'Đã kết thúc đợt lộc')+
    ' · Còn '+e.remaining.toLocaleString('vi-VN')+'/'+e.total.toLocaleString('vi-VN')+
@@ -275,5 +378,8 @@ $('leaveBtn').addEventListener('click',async()=>{try{await api('/api/temple/leav
 window.setupMovableTempleChat({panelId:'visitorChatDock',headerId:'visitorChatHandle',
  toggleId:'visitorChatToggle',closeId:'visitorChatClose',storeKey:'visitor'});
 setInterval(refresh,5000);setInterval(refreshLoc,4000);
-setInterval(()=>{if(currentStatus==='approved'&&!document.hidden)loadChat()},2700);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});refresh();
+setInterval(()=>{if(currentStatus==='approved'&&!document.hidden)loadChat()},2700);document.addEventListener('visibilitychange',()=>{
+ if(document.hidden && meditationActive) stopMeditation(true);
+ if(!document.hidden) refresh();
+});refresh();
 </script></body></html>
