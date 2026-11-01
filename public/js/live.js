@@ -189,58 +189,55 @@
     }
   })();
 
-  let lastRenderedLeaderboardJson = '';
+  let lastRenderedParticipantSignature = null;
+  let currentParticipantsCount = 0;
 
-  function renderCongregationHall(leaderboard = []) {
+  // Do not create a single person unless the server reports an actual
+  // web visitor entering the sanctuary or a real TikTok join/interaction.
+  function renderCongregationHall(participants = []) {
     if (!congregationHall) return;
-    // Những người xếp từ hạng 7 trở đi ngồi ở các vị trí đầu tiên cạnh thảm đỏ
-    const hallViewers = leaderboard.slice(6);
-    const sig = JSON.stringify(hallViewers.map((d) => `${d.name}:${d.merit}`));
-    if (sig === lastRenderedLeaderboardJson && congregationHall.children.length > 0) return;
-    lastRenderedLeaderboardJson = sig;
-
-    // Ưu tiên gắn thẻ tên vào các ghế gần thảm đỏ dễ nhìn nhất
-    const labeledSeatIndices = [
-      3, 4, 11, 12, 19, 20, 27, 28, 35, 36, 2, 5, 10, 13, 18, 21, 26, 29
+    const attendees = Array.isArray(participants) ? participants.slice(-40) : [];
+    currentParticipantsCount = attendees.length;
+    const sig = JSON.stringify(attendees.map(v => [v.id, v.name, v.avatar]));
+    if (sig === lastRenderedParticipantSignature) return;
+    lastRenderedParticipantSignature = sig;
+    const seatOrder = [
+      3,4,2,5,11,12,10,13,19,20,18,21,27,28,26,29,
+      35,36,34,37,1,6,9,14,17,22,25,30,33,38,0,7,
+      8,15,16,23,24,31,32,39
     ];
-    const seatViewerMap = new Map();
-    hallViewers.forEach((viewer, idx) => {
-      if (idx < labeledSeatIndices.length) {
-        seatViewerMap.set(labeledSeatIndices[idx], viewer);
-      }
+    congregationHall.replaceChildren();
+    attendees.forEach((visitor, idx) => {
+      const seat = HALL_SEAT_COORDS[seatOrder[idx]];
+      if (!seat) return;
+      const el = document.createElement('div');
+      el.className = 'hall-seat';
+      el.dataset.visitorId = visitor.id;
+      el.style.left = seat.x + 'px';
+      el.style.top = seat.y + 'px';
+      el.style.zIndex = String(20 + seat.row * 2);
+      el.style.transform = 'translate(-50%, -100%) scale(' + seat.scale + ')';
+      const img = document.createElement('img');
+      img.src = '/assets/devotee.png';
+      img.alt = 'Người tham gia: ' + visitor.name;
+      img.className = 'devotee-sprite';
+      img.style.animationDelay = ((idx * .27) % 3.5).toFixed(2) + 's';
+      el.append(img);
+      const badge = document.createElement('div');
+      badge.className = 'seat-badge';
+      const avatar = document.createElement('span');
+      avatar.className = 'seat-avatar';
+      avatar.textContent = String(visitor.name || 'P').charAt(0).toUpperCase();
+      const name = document.createElement('span');
+      name.className = 'seat-username';
+      name.textContent = shortenName(visitor.name, 12);
+      badge.append(avatar, name);
+      el.append(badge);
+      congregationHall.append(el);
     });
-
-    congregationHall.innerHTML = HALL_SEAT_COORDS.map((seat, idx) => {
-      const viewer = seatViewerMap.get(idx);
-      const badgeHtml = viewer
-        ? `
-          <div class="seat-badge">
-            <span class="seat-avatar">${
-              viewer.avatar
-                ? `<img src="${escapeHtml(viewer.avatar)}" alt="" />`
-                : escapeHtml(String(viewer.name || 'P').charAt(0).toUpperCase())
-            }</span>
-            <span class="seat-username">${escapeHtml(shortenName(viewer.name, 11))}</span>
-          </div>
-        `
-        : '';
-
-      return `
-        <div
-          class="hall-seat"
-          data-seat-idx="${idx}"
-          style="left: ${seat.x}px; top: ${seat.y}px; z-index: ${20 + seat.row * 2}; transform: translate(-50%, -100%) scale(${seat.scale});"
-        >
-          <img
-            src="/assets/devotee.png"
-            alt="Phật tử"
-            class="devotee-sprite"
-            style="animation-delay: ${((idx * 0.27) % 3.5).toFixed(2)}s;"
-          />
-          ${badgeHtml}
-        </div>
-      `;
-    }).join('');
+    if (currentParticipantsCount === 0) {
+      document.getElementById('centralWorshipper')?.classList.remove('real-participant-active');
+    }
   }
 
   // Preload toàn bộ 8 frame nhân vật vào bộ nhớ để chuyển frame mượt 0ms
@@ -354,6 +351,10 @@
     const avatarEl = document.getElementById('centralAvatar');
     const beam = document.getElementById('sacredLightBeam');
 
+    const centralActor = document.getElementById('centralWorshipper');
+    if (centralActor && currentParticipantsCount > 0) {
+      centralActor.classList.add('real-participant-active');
+    }
     if (nameEl) nameEl.textContent = user || 'Thí Chủ Hữu Duyên';
     if (actEl) actEl.textContent = actionLabel || '✨ Dâng hương cầu an';
     if (wishEl) wishEl.textContent = `“${wish || 'Nam Mô A Di Đà Phật, cầu bình an cát tường'}”`;
@@ -472,18 +473,21 @@
     renderIncenseSticks(st.activeIncenseSticks || 9);
 
     const lb = Array.isArray(st.leaderboard) ? st.leaderboard : [];
-    renderVipCushions(lb);
-    renderCongregationHall(lb);
+    const realVisitors = Array.isArray(st.sanctuaryParticipants) ? st.sanctuaryParticipants : [];
+    // VIP cushions must not be filled from stale merit records or simulated users.
+    // Every real visitor gets exactly one seat in the sanctuary.
+    renderVipCushions([]);
+    renderCongregationHall(realVisitors);
 
     // Tên đặt thủ công được ưu tiên lúc mở sân khấu; sự kiện Live thật vẫn
     // tự cập nhật tên người tương tác sau đó.
-    if (!hasInitializedRealLeader && st.manualDisplayName) {
+    if (!hasInitializedRealLeader && realVisitors.length && st.manualDisplayName) {
       hasInitializedRealLeader = true;
       displayManualName(st.manualDisplayName, st.manualDisplayWish);
       if (nameInput && !nameInput.value.trim()) nameInput.value = st.manualDisplayName;
     }
     // Đồng bộ tên Chủ Lễ mặc định theo người dẫn đầu thực tế nếu chưa có sự kiện mới
-    if (!hasInitializedRealLeader && lb.length > 0) {
+    if (!hasInitializedRealLeader && realVisitors.length && lb.length > 0) {
       hasInitializedRealLeader = true;
       const topDev = lb[0];
       updateCentralWorshipper(
@@ -743,6 +747,197 @@
     }, 6800);
   }
 
+
+  // --- Join at the entrance, then use the chosen nickname across all chat messages.
+  const entryOverlay = document.getElementById('visitorEntryOverlay');
+  const entryForm = document.getElementById('visitorEntryForm');
+  const entryInput = document.getElementById('visitorEntryName');
+  const entryError = document.getElementById('visitorEntryError');
+  const entrySubmit = document.getElementById('visitorEntrySubmit');
+  const chatPanel = document.getElementById('sharedChatMessages');
+  const stageChat = document.getElementById('stageChatMessages');
+  const chatForm = document.getElementById('sharedChatForm');
+  const chatName = document.getElementById('sharedChatName');
+  const chatText = document.getElementById('sharedChatText');
+  const chatStatus = document.getElementById('sharedChatStatus');
+  const chatSend = document.getElementById('sharedChatSend');
+  let publicChat = [];
+  let joinedVisitorName = '';
+  let sessionId = '';
+
+  try {
+    const savedName = localStorage.getItem('temple_shared_chat_name') || '';
+    if (entryInput) entryInput.value = savedName.slice(0, 26);
+    sessionId = localStorage.getItem('temple_visitor_session_id') || '';
+  } catch (_) {}
+  function generateSessionId() {
+    if (sessionId && /^[a-z0-9_-]{12,64}$/i.test(sessionId)) return sessionId;
+    const bytes = new Uint8Array(16);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(bytes);
+    else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    sessionId = Array.from(bytes, n => n.toString(16).padStart(2, '0')).join('');
+    try { localStorage.setItem('temple_visitor_session_id', sessionId); } catch (_) {}
+    return sessionId;
+  }
+  const isObs = document.body.classList.contains('obs-mode');
+  if (isObs) entryOverlay?.classList.add('is-hidden');
+
+  async function joinRoom(name) {
+    const resp = await fetch('/api/visitors/join', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, sessionId: generateSessionId() })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.error || 'Không thể vào phòng chùa');
+    return data.visitor;
+  }
+  entryForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (isObs) return;
+    const name = String(entryInput?.value || '').trim();
+    if (name.length < 2 || name.length > 26 || !/[a-zA-ZÀ-ỹ].*[a-zA-ZÀ-ỹ]/u.test(name)) {
+      if (entryError) entryError.textContent = 'Hãy nhập tên từ 2–26 ký tự, có ít nhất hai chữ cái.';
+      return;
+    }
+    if (entrySubmit) entrySubmit.disabled = true;
+    if (entryError) entryError.textContent = 'Đang đưa bạn vào chánh điện...';
+    try {
+      const visitor = await joinRoom(name);
+      joinedVisitorName = visitor.name;
+      if (chatName) chatName.value = joinedVisitorName;
+      const manualInput = document.getElementById('inputDevoteeName');
+      if (manualInput && !manualInput.value) manualInput.value = joinedVisitorName;
+      try { localStorage.setItem('temple_shared_chat_name', joinedVisitorName); } catch (_) {}
+      entryOverlay?.classList.add('is-hidden');
+      if (entryError) entryError.textContent = '';
+      setChatFeedback('🙏 Chào mừng ' + joinedVisitorName + ' vào chánh điện! Bạn có thể trò chuyện với mọi người.');
+    } catch (error) {
+      if (entryError) entryError.textContent = error.message || 'Không thể vào chùa. Vui lòng thử lại.';
+    } finally {
+      if (entrySubmit) entrySubmit.disabled = false;
+    }
+  });
+  document.getElementById('btnChangeChatName')?.addEventListener('click', () => {
+    if (isObs) return;
+    if (entryInput) entryInput.value = joinedVisitorName || entryInput.value;
+    entryOverlay?.classList.remove('is-hidden');
+    entryInput?.focus();
+  });
+
+  function setChatFeedback(text, isError = false) {
+    if (!chatStatus) return;
+    chatStatus.textContent = text;
+    chatStatus.style.color = isError ? '#ffaba0' : '#aaf1c0';
+  }
+  function chatTime(time) {
+    try { return new Date(time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); }
+    catch (_) { return ''; }
+  }
+  function renderSharedChat() {
+    if (chatPanel) {
+      const nearBottom = chatPanel.scrollTop + chatPanel.clientHeight >= chatPanel.scrollHeight - 60;
+      chatPanel.replaceChildren();
+      if (!publicChat.length) {
+        const empty = document.createElement('p');
+        empty.className = 'shared-chat-empty';
+        empty.textContent = 'Phòng chat đang trống. Hãy gửi lời chào đầu tiên! 🙏';
+        chatPanel.append(empty);
+      }
+      for (const message of publicChat.slice(-60)) {
+        const item = document.createElement('article');
+        item.className = 'shared-chat-line';
+        const meta = document.createElement('div');
+        meta.className = 'shared-chat-meta';
+        const author = document.createElement('strong');
+        author.className = 'shared-chat-author' + (message.source === 'tiktok' ? ' tiktok' : '');
+        author.textContent = message.name || 'Thí chủ';
+        const source = document.createElement('span');
+        source.className = 'shared-chat-source';
+        source.textContent = (message.source === 'tiktok' ? 'TikTok LIVE' : 'Web') + ' · ' + chatTime(message.timestamp);
+        meta.append(author, source);
+        const body = document.createElement('p');
+        body.className = 'shared-chat-body';
+        body.textContent = message.text || '';
+        item.append(meta, body);
+        chatPanel.append(item);
+      }
+      if (nearBottom) chatPanel.scrollTop = chatPanel.scrollHeight;
+    }
+    if (stageChat) {
+      stageChat.replaceChildren();
+      const last = publicChat.slice(-3);
+      if (!last.length) {
+        const empty = document.createElement('div');
+        empty.className = 'stage-chat-placeholder';
+        empty.textContent = 'Chưa có lời nhắn. Nam mô A Di Đà Phật 🙏';
+        stageChat.append(empty);
+      }
+      for (const m of last) {
+        const row = document.createElement('div');
+        row.className = 'live-chat-overlay-line' + (m.source === 'tiktok' ? ' tiktok' : '');
+        const name = document.createElement('strong');
+        name.textContent = (m.source === 'tiktok' ? '♪ ' : '') + shortenName(m.name, 13) + ':';
+        const body = document.createElement('span');
+        body.textContent = String(m.text || '').slice(0, 90);
+        row.append(name, body);
+        stageChat.append(row);
+      }
+    }
+  }
+  function setChatHistory(messages) {
+    publicChat = Array.isArray(messages) ? messages.slice(-60) : [];
+    renderSharedChat();
+  }
+  function appendChatMessage(message) {
+    if (!message || !message.id || publicChat.some(m => m.id === message.id)) return;
+    publicChat.push(message);
+    if (publicChat.length > 60) publicChat.shift();
+    renderSharedChat();
+  }
+  chatForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!joinedVisitorName || !sessionId) {
+      setChatFeedback('Hãy chọn tên tại màn hình chào trước khi gửi tin.', true);
+      entryOverlay?.classList.remove('is-hidden');
+      return;
+    }
+    const text = String(chatText?.value || '').trim();
+    if (!text || text.length > 180) {
+      setChatFeedback('Nội dung tin nhắn cần từ 1–180 ký tự.', true);
+      return;
+    }
+    if (chatSend) chatSend.disabled = true;
+    setChatFeedback('Đang gửi tin nhắn...');
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, name: joinedVisitorName, text })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Không gửi được tin');
+      if (chatText) chatText.value = '';
+      appendChatMessage(data.message);
+      setChatFeedback('✅ Đã gửi tin vào phòng chat chung');
+    } catch (err) {
+      setChatFeedback('❌ ' + (err.message || 'Không gửi được tin'), true);
+    } finally { if (chatSend) chatSend.disabled = false; }
+  });
+  const clearChatBtn = document.getElementById('clearSharedChat');
+  fetch('/auth/status').then(r => r.json()).then(auth => {
+    if (clearChatBtn) clearChatBtn.hidden = !auth.authenticated;
+  }).catch(() => {});
+  clearChatBtn?.addEventListener('click', async () => {
+    if (!window.confirm('Xóa toàn bộ tin nhắn của phòng chat hiện tại?')) return;
+    const r = await fetch('/api/chat', { method: 'DELETE' });
+    if (r.ok) setChatHistory([]);
+  });
+  // WebSocket supplies the initial history and subsequent messages. HTTP
+  // provides a one-time fallback while a free service is still waking.
+  fetch('/api/chat').then(r => r.json()).then(d => {
+    if (d.ok && !publicChat.length) setChatHistory(d.messages);
+  }).catch(() => {});
+
+
   // 8. Kết nối JSON-RPC 2.0 WebSocket & Gửi Lệnh RPC
   let ws = null;
   let rpcId = 1;
@@ -754,7 +949,11 @@
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.method === 'temple.state') {
+        if (msg.method === 'chat.sync') {
+          setChatHistory(msg.params);
+        } else if (msg.method === 'chat.message') {
+          appendChatMessage(msg.params);
+        } else if (msg.method === 'temple.state') {
           updateUIState(msg.params);
         } else if (msg.method === 'temple.event') {
           if (msg.params?.state) updateUIState(msg.params.state);
